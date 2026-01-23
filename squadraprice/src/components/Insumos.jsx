@@ -1,0 +1,300 @@
+import { useEffect, useState } from 'react'
+import '../App.css'
+import Header from './Header'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+
+function Insumos() {
+  const [supplies, setSupplies] = useState([])
+  const [categories, setCategories] = useState([])
+  const [suppliers, setSuppliers] = useState([])
+  const [errorMessage, setErrorMessage] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [codeFilter, setCodeFilter] = useState('')
+  const [descriptionFilter, setDescriptionFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [supplierFilter, setSupplierFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+
+  const fetchSupplies = async ({
+    code,
+    description,
+    categoryId,
+    supplierId,
+    status,
+  } = {}) => {
+    try {
+      setIsLoading(true)
+      const params = new URLSearchParams()
+      if (code) {
+        params.set('code', code)
+      }
+      if (description) {
+        params.set('description', description)
+      }
+      if (categoryId) {
+        params.set('categoryId', categoryId)
+      }
+      if (supplierId) {
+        params.set('supplierId', supplierId)
+      }
+      if (status) {
+        params.set('status', status)
+      }
+
+      const queryString = params.toString()
+      const response = await fetch(
+        `${API_BASE_URL}/api/insumos/search${queryString ? `?${queryString}` : ''}`,
+      )
+      if (!response.ok) {
+        throw new Error(`Falha ao buscar insumos (${response.status})`)
+      }
+      const data = await response.json()
+      setSupplies(Array.isArray(data) ? data : [])
+      setErrorMessage('')
+    } catch (error) {
+      setSupplies([])
+      setErrorMessage(error instanceof Error ? error.message : 'Erro ao buscar insumos')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadSupplies = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch(`${API_BASE_URL}/api/insumos`)
+        if (!response.ok) {
+          throw new Error(`Falha ao buscar insumos (${response.status})`)
+        }
+        const data = await response.json()
+        if (isMounted) {
+          setSupplies(Array.isArray(data) ? data : [])
+          setErrorMessage('')
+        }
+      } catch (error) {
+        if (isMounted) {
+          setSupplies([])
+          setErrorMessage(error instanceof Error ? error.message : 'Erro ao buscar insumos')
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    const loadFilters = async () => {
+      try {
+        const [categoriesResponse, suppliersResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/insumos/categories`),
+          fetch(`${API_BASE_URL}/api/insumos/fornecedores`),
+        ])
+
+        if (!categoriesResponse.ok) {
+          throw new Error(`Falha ao buscar categorias (${categoriesResponse.status})`)
+        }
+        if (!suppliersResponse.ok) {
+          throw new Error(`Falha ao buscar fornecedores (${suppliersResponse.status})`)
+        }
+
+        const [categoriesData, suppliersData] = await Promise.all([
+          categoriesResponse.json(),
+          suppliersResponse.json(),
+        ])
+
+        if (isMounted) {
+          setCategories(Array.isArray(categoriesData) ? categoriesData : [])
+          setSuppliers(Array.isArray(suppliersData) ? suppliersData : [])
+        }
+      } catch (error) {
+        if (isMounted) {
+          setCategories([])
+          setSuppliers([])
+        }
+      }
+    }
+
+    loadSupplies()
+    loadFilters()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const handleSearch = () => {
+    const statusValue = statusFilter ? statusFilter.toUpperCase() : ''
+    fetchSupplies({
+      code: codeFilter.trim(),
+      description: descriptionFilter.trim(),
+      categoryId: categoryFilter,
+      supplierId: supplierFilter,
+      status: statusValue,
+    })
+  }
+
+  return (
+    <div className="app supplies-page">
+      <Header />
+      <main className="supplies-container">
+        <header className="supplies-header">
+          <div>
+            <h1>Insumos</h1>
+            <span className="supplies-subtitle">Criar Insumo</span>
+          </div>
+        </header>
+
+        <section className="supplies-filters">
+          <div className="supplies-filter-group">
+            <label htmlFor="supplies-code">Codigo do Insumo</label>
+            <input
+              id="supplies-code"
+              className="supplies-filter-input"
+              type="text"
+              placeholder="Codigo do Insumo"
+              value={codeFilter}
+              onChange={(event) => setCodeFilter(event.target.value)}
+            />
+          </div>
+          <div className="supplies-filter-group">
+            <label htmlFor="supplies-description">Descricao</label>
+            <input
+              id="supplies-description"
+              className="supplies-filter-input"
+              type="text"
+              placeholder="Descricao"
+              value={descriptionFilter}
+              onChange={(event) => setDescriptionFilter(event.target.value)}
+            />
+          </div>
+          <div className="supplies-filter-group">
+            <label htmlFor="supplies-category">Categorias</label>
+            <select
+              id="supplies-category"
+              className="supplies-filter-select"
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+            >
+              <option value="">Selecione</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="supplies-filter-group">
+            <label htmlFor="supplies-supplier">Fornecedores</label>
+            <select
+              id="supplies-supplier"
+              className="supplies-filter-select"
+              value={supplierFilter}
+              onChange={(event) => setSupplierFilter(event.target.value)}
+            >
+              <option value="">Selecione</option>
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>
+                  {supplier.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="supplies-filter-group">
+            <label htmlFor="supplies-status">Status</label>
+            <select
+              id="supplies-status"
+              className="supplies-filter-select"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+            >
+              <option value="">Selecione</option>
+              <option value="Ativo">Ativo</option>
+              <option value="Inativo">Inativo</option>
+            </select>
+          </div>
+          <button
+            className="icon-button supplies-search-button"
+            type="button"
+            aria-label="Buscar"
+            onClick={handleSearch}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M15.5 14h-.79l-.28-.27a6 6 0 1 0-.71.71l.27.28v.79l5 5 1.5-1.5-5-5zm-6 0a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+        </section>
+
+        <section className="supplies-card">
+          <table className="supplies-table">
+            <thead>
+              <tr>
+                <th>Id</th>
+                <th>Codigo</th>
+                <th>Preco</th>
+                <th>Categoria</th>
+                <th>Fornecedor</th>
+                <th>Data Criacao</th>
+                <th>Data Alteracao</th>
+                <th>Status</th>
+                <th>Descricao</th>
+                <th>#</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading && (
+                <tr>
+                  <td colSpan={10}>Carregando insumos...</td>
+                </tr>
+              )}
+              {!isLoading && errorMessage && (
+                <tr>
+                  <td colSpan={10}>{errorMessage}</td>
+                </tr>
+              )}
+              {supplies.map((supply) => (
+                <tr key={supply.id}>
+                  <td>{supply.id}</td>
+                  <td>{supply.code}</td>
+                  <td>{supply.price}</td>
+                  <td>{supply.category}</td>
+                  <td>{supply.supplier}</td>
+                  <td>{supply.createdAt}</td>
+                  <td>{supply.updatedAt}</td>
+                  <td>
+                    <span
+                      className={`status-badge ${
+                        supply.status === 'Ativo' ? 'status-active' : 'status-inactive'
+                      }`}
+                    >
+                      {supply.status}
+                    </span>
+                  </td>
+                  <td className="supplies-description">{supply.description}</td>
+                  <td className="supplies-actions">
+                    <button className="icon-button edit-button" type="button" aria-label="Editar">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.47-8.47.92.92-8.47 8.47zM20.71 7.04a1 1 0 0 0 0-1.41L18.37 3.3a1 1 0 0 0-1.41 0l-1.75 1.75 3.75 3.75 1.75-1.75z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+  )
+}
+
+export default Insumos
