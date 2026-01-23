@@ -10,7 +10,7 @@ function Home() {
         { label: 'Usuários', icon: 'US', to: '/Usuarios' },
         { label: 'Constantes', icon: 'CO', to: '/Constantes' },
         { label: 'Cidade / Estado', icon: 'CE', to: '/Cidades' },
-        { label: 'Texto de Orcamento', icon: 'TO' },
+        { label: 'Texto de Orcamento', icon: 'TO', to: '/ModeloOrcamento' },
         { label: 'Fornecedores', icon: 'FO' },
       ],
     },

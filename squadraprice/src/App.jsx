@@ -9,6 +9,7 @@ import Insumos from './components/Insumos'
 import Vidros from './components/Vidros'
 import Orcamentos from './components/Orcamentos'
 import OrcamentoDetalhes from './components/OrcamentoDetalhes'
+import ModeloOrcamento from './components/ModeloOrcamento'
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
       <Route path="/Vidros" element={<Vidros />} />
       <Route path="/Orcamentos" element={<Orcamentos />} />
       <Route path="/Orcamentos/:id" element={<OrcamentoDetalhes />} />
+      <Route path="/ModeloOrcamento" element={<ModeloOrcamento />} />
       <Route path="*" element={<Home />} />
     </Routes>
   )
