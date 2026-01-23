@@ -2,6 +2,8 @@ import { Route, Routes } from 'react-router-dom'
 import Home from './components/Home'
 import Usuarios from './components/Usuarios'
 import Constantes from './components/Constantes'
+import Cidades from './components/Cidades'
+import Estados from './components/Estados'
 import Produtos from './components/Produtos'
 import Insumos from './components/Insumos'
 import Vidros from './components/Vidros'
@@ -14,6 +16,9 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/Usuarios" element={<Usuarios />} />
       <Route path="/Constantes" element={<Constantes />} />
+      <Route path="/Cidades" element={<Cidades />} />
+      <Route path="/CidadesEstados" element={<Cidades />} />
+      <Route path="/Estados" element={<Estados />} />
       <Route path="/Produtos" element={<Produtos />} />
       <Route path="/Insumos" element={<Insumos />} />
       <Route path="/Vidros" element={<Vidros />} />

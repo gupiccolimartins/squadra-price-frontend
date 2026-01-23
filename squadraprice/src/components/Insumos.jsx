@@ -15,45 +15,62 @@ function Insumos() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [supplierFilter, setSupplierFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
 
-  const fetchSupplies = async ({
-    code,
-    description,
-    categoryId,
-    supplierId,
-    status,
-  } = {}) => {
+  const fetchSupplies = async (filters = {}, page = 0) => {
     try {
       setIsLoading(true)
       const params = new URLSearchParams()
-      if (code) {
-        params.set('code', code)
+      if (filters.code) {
+        params.set('code', filters.code)
       }
-      if (description) {
-        params.set('description', description)
+      if (filters.description) {
+        params.set('description', filters.description)
       }
-      if (categoryId) {
-        params.set('categoryId', categoryId)
+      if (filters.categoryId) {
+        params.set('categoryId', filters.categoryId)
       }
-      if (supplierId) {
-        params.set('supplierId', supplierId)
+      if (filters.supplierId) {
+        params.set('supplierId', filters.supplierId)
       }
-      if (status) {
-        params.set('status', status)
+      if (filters.status) {
+        params.set('status', filters.status)
       }
 
-      const queryString = params.toString()
-      const response = await fetch(
-        `${API_BASE_URL}/api/insumos/search${queryString ? `?${queryString}` : ''}`,
-      )
+      const query = params.toString()
+      const url = query
+        ? `${API_BASE_URL}/api/insumos/search?${query}`
+        : `${API_BASE_URL}/api/insumos?page=${page}&size=${pageSize}`
+
+      const response = await fetch(url)
       if (!response.ok) {
         throw new Error(`Falha ao buscar insumos (${response.status})`)
       }
       const data = await response.json()
-      setSupplies(Array.isArray(data) ? data : [])
+      
+      // Handle paginated response
+      if (data.content) {
+        setSupplies(Array.isArray(data.content) ? data.content : [])
+        setTotalPages(data.page?.totalPages || 0)
+        setTotalElements(data.page?.totalElements || 0)
+        setCurrentPage(page)
+      } else {
+        // Handle non-paginated response (search endpoint)
+        setSupplies(Array.isArray(data) ? data : [])
+        setTotalPages(1)
+        setTotalElements(Array.isArray(data) ? data.length : 0)
+        setCurrentPage(0)
+      }
       setErrorMessage('')
     } catch (error) {
       setSupplies([])
+      setTotalPages(0)
+      setTotalElements(0)
       setErrorMessage(error instanceof Error ? error.message : 'Erro ao buscar insumos')
     } finally {
       setIsLoading(false)
@@ -66,18 +83,24 @@ function Insumos() {
     const loadSupplies = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(`${API_BASE_URL}/api/insumos`)
+        const response = await fetch(
+          `${API_BASE_URL}/api/insumos?page=${currentPage}&size=${pageSize}`
+        )
         if (!response.ok) {
           throw new Error(`Falha ao buscar insumos (${response.status})`)
         }
         const data = await response.json()
         if (isMounted) {
-          setSupplies(Array.isArray(data) ? data : [])
+          setSupplies(Array.isArray(data.content) ? data.content : [])
+          setTotalPages(data.page?.totalPages || 0)
+          setTotalElements(data.page?.totalElements || 0)
           setErrorMessage('')
         }
       } catch (error) {
         if (isMounted) {
           setSupplies([])
+          setTotalPages(0)
+          setTotalElements(0)
           setErrorMessage(error instanceof Error ? error.message : 'Erro ao buscar insumos')
         }
       } finally {
@@ -86,6 +109,16 @@ function Insumos() {
         }
       }
     }
+
+    loadSupplies()
+
+    return () => {
+      isMounted = false
+    }
+  }, [currentPage, pageSize])
+
+  useEffect(() => {
+    let isMounted = true
 
     const loadFilters = async () => {
       try {
@@ -118,7 +151,6 @@ function Insumos() {
       }
     }
 
-    loadSupplies()
     loadFilters()
 
     return () => {
@@ -127,6 +159,7 @@ function Insumos() {
   }, [])
 
   const handleSearch = () => {
+    setCurrentPage(0) // Reset to first page on new search
     const statusValue = statusFilter ? statusFilter.toUpperCase() : ''
     fetchSupplies({
       code: codeFilter.trim(),
@@ -134,7 +167,18 @@ function Insumos() {
       categoryId: categoryFilter,
       supplierId: supplierFilter,
       status: statusValue,
-    })
+    }, 0)
+  }
+
+  const handlePageSizeChange = (newSize) => {
+    setPageSize(newSize)
+    setCurrentPage(0) // Reset to first page when changing page size
+  }
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 0 && newPage < totalPages) {
+      setCurrentPage(newPage)
+    }
   }
 
   return (
@@ -258,6 +302,11 @@ function Insumos() {
                   <td colSpan={10}>{errorMessage}</td>
                 </tr>
               )}
+              {!isLoading && !errorMessage && supplies.length === 0 && (
+                <tr>
+                  <td colSpan={10}>Nenhum insumo encontrado.</td>
+                </tr>
+              )}
               {supplies.map((supply) => (
                 <tr key={supply.id}>
                   <td>{supply.id}</td>
@@ -291,6 +340,77 @@ function Insumos() {
               ))}
             </tbody>
           </table>
+
+          {/* Pagination Controls */}
+          <div className="pagination-container">
+            <div className="pagination-info">
+              <span>Itens por página:</span>
+              <select
+                className="pagination-select"
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+              <span className="pagination-total">
+                {totalElements > 0
+                  ? `${currentPage * pageSize + 1}-${Math.min((currentPage + 1) * pageSize, totalElements)} de ${totalElements}`
+                  : '0 registros'}
+              </span>
+            </div>
+            <div className="pagination-controls">
+              <button
+                className="pagination-button"
+                type="button"
+                onClick={() => handlePageChange(0)}
+                disabled={currentPage === 0}
+                aria-label="Primeira página"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path d="M18.41 16.59L13.82 12l4.59-4.59L17 6l-6 6 6 6 1.41-1.41zM6 6h2v12H6V6z" fill="currentColor" />
+                </svg>
+              </button>
+              <button
+                className="pagination-button"
+                type="button"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 0}
+                aria-label="Página anterior"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12l4.58-4.59z" fill="currentColor" />
+                </svg>
+              </button>
+              <span className="pagination-page">
+                Página {totalPages > 0 ? currentPage + 1 : 0} de {totalPages}
+              </span>
+              <button
+                className="pagination-button"
+                type="button"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages - 1}
+                aria-label="Próxima página"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor" />
+                </svg>
+              </button>
+              <button
+                className="pagination-button"
+                type="button"
+                onClick={() => handlePageChange(totalPages - 1)}
+                disabled={currentPage >= totalPages - 1}
+                aria-label="Última página"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path d="M5.59 7.41L10.18 12l-4.59 4.59L7 18l6-6-6-6-1.41 1.41zM16 6h2v12h-2V6z" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </section>
       </main>
     </div>

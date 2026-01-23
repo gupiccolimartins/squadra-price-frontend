@@ -1,4 +1,8 @@
+import { useNavigate } from 'react-router-dom'
+
 function Header() {
+  const navigate = useNavigate()
+
   return (
     <header className="topbar">
       <div className="topbar-content">
@@ -29,7 +33,12 @@ function Header() {
         </select>
 
         <div className="topbar-actions">
-          <button type="button" className="icon-button" aria-label="Inicio">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Inicio"
+            onClick={() => navigate('/')}
+          >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="M12 5.1 4 12h2.5v7h4.5v-4h2v4h4.5v-7H20L12 5.1z"

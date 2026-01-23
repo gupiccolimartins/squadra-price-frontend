@@ -16,6 +16,12 @@ function Produtos() {
   const [linesErrorMessage, setLinesErrorMessage] = useState('')
   const [categoriesErrorMessage, setCategoriesErrorMessage] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
   const [isInsumosModalOpen, setIsInsumosModalOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [productInsumos, setProductInsumos] = useState([])
@@ -33,18 +39,24 @@ function Produtos() {
     const loadProducts = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(`${API_BASE_URL}/api/products`)
+        const response = await fetch(
+          `${API_BASE_URL}/api/products?page=${currentPage}&size=${pageSize}`
+        )
         if (!response.ok) {
           throw new Error(`Falha ao buscar produtos (${response.status})`)
         }
         const data = await response.json()
         if (isMounted) {
-          setProducts(Array.isArray(data) ? data : [])
+          setProducts(Array.isArray(data.content) ? data.content : [])
+          setTotalPages(data.page?.totalPages || 0)
+          setTotalElements(data.page?.totalElements || 0)
           setErrorMessage('')
         }
       } catch (error) {
         if (isMounted) {
           setProducts([])
+          setTotalPages(0)
+          setTotalElements(0)
           setErrorMessage(error instanceof Error ? error.message : 'Erro ao buscar produtos')
         }
       } finally {
@@ -59,9 +71,9 @@ function Produtos() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [currentPage, pageSize])
 
-  const fetchProducts = async (filters = {}) => {
+  const fetchProducts = async (filters = {}, page = 0) => {
     try {
       setIsLoading(true)
       const params = new URLSearchParams()
@@ -81,17 +93,32 @@ function Produtos() {
       const query = params.toString()
       const url = query
         ? `${API_BASE_URL}/api/products/search?${query}`
-        : `${API_BASE_URL}/api/products`
+        : `${API_BASE_URL}/api/products?page=${page}&size=${pageSize}`
 
       const response = await fetch(url)
       if (!response.ok) {
         throw new Error(`Falha ao buscar produtos (${response.status})`)
       }
       const data = await response.json()
-      setProducts(Array.isArray(data) ? data : [])
+      
+      // Handle paginated response
+      if (data.content) {
+        setProducts(Array.isArray(data.content) ? data.content : [])
+        setTotalPages(data.page?.totalPages || 0)
+        setTotalElements(data.page?.totalElements || 0)
+        setCurrentPage(page)
+      } else {
+        // Handle non-paginated response (search endpoint)
+        setProducts(Array.isArray(data) ? data : [])
+        setTotalPages(1)
+        setTotalElements(Array.isArray(data) ? data.length : 0)
+        setCurrentPage(0)
+      }
       setErrorMessage('')
     } catch (error) {
       setProducts([])
+      setTotalPages(0)
+      setTotalElements(0)
       setErrorMessage(error instanceof Error ? error.message : 'Erro ao buscar produtos')
     } finally {
       setIsLoading(false)
@@ -99,12 +126,24 @@ function Produtos() {
   }
 
   const handleSearch = () => {
+    setCurrentPage(0) // Reset to first page on new search
     fetchProducts({
       name: searchTerm.trim(),
       lineId: selectedLine,
       categoryId: selectedCategory,
       statusId: selectedStatus,
-    })
+    }, 0)
+  }
+
+  const handlePageSizeChange = (newSize) => {
+    setPageSize(newSize)
+    setCurrentPage(0) // Reset to first page when changing page size
+  }
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 0 && newPage < totalPages) {
+      setCurrentPage(newPage)
+    }
   }
 
   const handleOpenInsumosModal = async (product) => {
@@ -310,6 +349,11 @@ function Produtos() {
                   <td colSpan={11}>{errorMessage}</td>
                 </tr>
               )}
+              {!isLoading && !errorMessage && products.length === 0 && (
+                <tr>
+                  <td colSpan={11}>Nenhum produto encontrado.</td>
+                </tr>
+              )}
               {products.map((product) => (
                 <tr key={product.id}>
                   <td>{product.id}</td>
@@ -368,6 +412,77 @@ function Produtos() {
               ))}
             </tbody>
           </table>
+
+          {/* Pagination Controls */}
+          <div className="pagination-container">
+            <div className="pagination-info">
+              <span>Itens por página:</span>
+              <select
+                className="pagination-select"
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+              <span className="pagination-total">
+                {totalElements > 0
+                  ? `${currentPage * pageSize + 1}-${Math.min((currentPage + 1) * pageSize, totalElements)} de ${totalElements}`
+                  : '0 registros'}
+              </span>
+            </div>
+            <div className="pagination-controls">
+              <button
+                className="pagination-button"
+                type="button"
+                onClick={() => handlePageChange(0)}
+                disabled={currentPage === 0}
+                aria-label="Primeira página"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path d="M18.41 16.59L13.82 12l4.59-4.59L17 6l-6 6 6 6 1.41-1.41zM6 6h2v12H6V6z" fill="currentColor" />
+                </svg>
+              </button>
+              <button
+                className="pagination-button"
+                type="button"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 0}
+                aria-label="Página anterior"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12l4.58-4.59z" fill="currentColor" />
+                </svg>
+              </button>
+              <span className="pagination-page">
+                Página {totalPages > 0 ? currentPage + 1 : 0} de {totalPages}
+              </span>
+              <button
+                className="pagination-button"
+                type="button"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages - 1}
+                aria-label="Próxima página"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor" />
+                </svg>
+              </button>
+              <button
+                className="pagination-button"
+                type="button"
+                onClick={() => handlePageChange(totalPages - 1)}
+                disabled={currentPage >= totalPages - 1}
+                aria-label="Última página"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path d="M5.59 7.41L10.18 12l-4.59 4.59L7 18l6-6-6-6-1.41 1.41zM16 6h2v12h-2V6z" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </section>
       </main>
       {isInsumosModalOpen && (
