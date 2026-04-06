@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import '../App.css'
 import Header from './Header'
@@ -109,6 +109,27 @@ function OrcamentoDetalhes() {
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [brokenImages, setBrokenImages] = useState({})
   const [activeTab, setActiveTab] = useState('resumo')
+  const [isAddEsquadriaModalOpen, setIsAddEsquadriaModalOpen] = useState(false)
+  const [addEsquadriaLoading, setAddEsquadriaLoading] = useState(false)
+  const [addEsquadriaSubmitting, setAddEsquadriaSubmitting] = useState(false)
+  const [addEsquadriaError, setAddEsquadriaError] = useState('')
+  const [colorOptions, setColorOptions] = useState([])
+  const [lineOptions, setLineOptions] = useState([])
+  const [glassOptions, setGlassOptions] = useState([])
+  const [filteredProducts, setFilteredProducts] = useState([])
+  const [filteredProductsLoading, setFilteredProductsLoading] = useState(false)
+  const [addEsquadriaForm, setAddEsquadriaForm] = useState({
+    corId: '',
+    linhaId: '',
+    produtoId: '',
+    quantidade: '',
+    largura: '',
+    altura: '',
+    codigo: '',
+    ambiente: '',
+    vidroId: '',
+    observacao: '',
+  })
 
   const initialBudget = useMemo(() => {
     const stateBudget = location.state?.budget
@@ -123,58 +144,123 @@ function OrcamentoDetalhes() {
 
   const [budget, setBudget] = useState(initialBudget)
 
+  const resetAddEsquadriaForm = useCallback(() => {
+    setAddEsquadriaForm({
+      corId: '',
+      linhaId: '',
+      produtoId: '',
+      quantidade: '',
+      largura: '',
+      altura: '',
+      codigo: '',
+      ambiente: '',
+      vidroId: '',
+      observacao: '',
+    })
+    setFilteredProducts([])
+    setAddEsquadriaError('')
+  }, [])
+
+  const loadBudgetDetails = useCallback(async () => {
+    if (!id) {
+      return
+    }
+    try {
+      setDetailsLoading(true)
+      const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/detalhes`)
+      if (!response.ok) {
+        throw new Error(`Falha ao buscar detalhes do orçamento (${response.status})`)
+      }
+      const data = await response.json()
+      setBudget({
+        ...fallbackBudget(id),
+        ...data,
+      })
+      const mappedItems = Array.isArray(data?.produtos)
+        ? data.produtos.map((produto, index) => {
+            const resolvedQuantity = Number.parseFloat(produto.quantidade) || 0
+            const resolvedUnitPrice = Number.parseFloat(produto.valorUnitario) || 0
+            return {
+              id: String(produto.id || `${produto.produtoId || 'item'}-${index}`),
+              name: produto.nome || produto.codigoPeca || 'Produto',
+              quantity: resolvedQuantity,
+              unitPrice: resolvedUnitPrice,
+              total: resolvedUnitPrice * resolvedQuantity,
+            }
+          })
+        : []
+      setItems(mappedItems)
+      setDetailsError('')
+    } catch (error) {
+      setDetailsError(error instanceof Error ? error.message : 'Erro ao buscar detalhes do orçamento')
+    } finally {
+      setDetailsLoading(false)
+    }
+  }, [id])
+
+  const loadProdutosPorCorLinha = useCallback(async (linhaId, corId) => {
+    if (!linhaId || !corId) {
+      setFilteredProducts([])
+      return
+    }
+    try {
+      setFilteredProductsLoading(true)
+      const response = await fetch(
+        `${API_BASE_URL}/api/orcamentos/lista-produtos?corId=${corId}&linhaId=${linhaId}`
+      )
+      if (!response.ok) {
+        throw new Error('Falha ao carregar produtos da linha/cor')
+      }
+      const data = await response.json()
+      setFilteredProducts(Array.isArray(data) ? data : [])
+      setAddEsquadriaError('')
+    } catch (error) {
+      setFilteredProducts([])
+      setAddEsquadriaError(
+        error instanceof Error ? error.message : 'Erro ao carregar produtos para a esquadria'
+      )
+    } finally {
+      setFilteredProductsLoading(false)
+    }
+  }, [])
+
+  const loadAddEsquadriaDependencies = useCallback(async () => {
+    try {
+      setAddEsquadriaLoading(true)
+      setAddEsquadriaError('')
+      const [colorsResponse, linesResponse, glassesResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/products/colors`),
+        fetch(`${API_BASE_URL}/api/products/lines`),
+        fetch(`${API_BASE_URL}/api/vidros?page=0&size=200`),
+      ])
+
+      if (!colorsResponse.ok || !linesResponse.ok || !glassesResponse.ok) {
+        throw new Error('Falha ao carregar dados para adicionar esquadria')
+      }
+
+      const [colorsData, linesData, glassesData] = await Promise.all([
+        colorsResponse.json(),
+        linesResponse.json(),
+        glassesResponse.json(),
+      ])
+
+      setColorOptions(Array.isArray(colorsData) ? colorsData : [])
+      setLineOptions(Array.isArray(linesData) ? linesData : [])
+      setGlassOptions(Array.isArray(glassesData?.content) ? glassesData.content : [])
+    } catch (error) {
+      setAddEsquadriaError(
+        error instanceof Error ? error.message : 'Erro ao carregar listas de esquadria'
+      )
+    } finally {
+      setAddEsquadriaLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     setBudget(initialBudget)
   }, [initialBudget])
 
   useEffect(() => {
-    let isMounted = true
-
-    const loadBudgetDetails = async () => {
-      if (!id) {
-        return
-      }
-      try {
-        setDetailsLoading(true)
-        const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/detalhes`)
-        if (!response.ok) {
-          throw new Error(`Falha ao buscar detalhes do orçamento (${response.status})`)
-        }
-        const data = await response.json()
-        if (isMounted) {
-          setBudget({
-            ...fallbackBudget(id),
-            ...data,
-          })
-          const mappedItems = Array.isArray(data?.produtos)
-            ? data.produtos.map((produto, index) => {
-                const resolvedQuantity = Number.parseFloat(produto.quantidade) || 0
-                const resolvedUnitPrice = Number.parseFloat(produto.valorUnitario) || 0
-                return {
-                  id: String(produto.id || `${produto.produtoId || 'item'}-${index}`),
-                  name: produto.nome || produto.codigoPeca || 'Produto',
-                  quantity: resolvedQuantity,
-                  unitPrice: resolvedUnitPrice,
-                  total: resolvedUnitPrice * resolvedQuantity,
-                }
-              })
-            : []
-          setItems(mappedItems)
-          setDetailsError('')
-        }
-      } catch (error) {
-        if (isMounted) {
-          setDetailsError(
-            error instanceof Error ? error.message : 'Erro ao buscar detalhes do orçamento'
-          )
-        }
-      } finally {
-        if (isMounted) {
-          setDetailsLoading(false)
-        }
-      }
-    }
-
     const loadProducts = async () => {
       try {
         setProductsLoading(true)
@@ -183,29 +269,20 @@ function OrcamentoDetalhes() {
           throw new Error(`Falha ao buscar produtos (${response.status})`)
         }
         const data = await response.json()
-        if (isMounted) {
-          setProducts(Array.isArray(data) ? data : [])
-          setProductsError('')
-        }
+        const payload = Array.isArray(data) ? data : data?.content
+        setProducts(Array.isArray(payload) ? payload : [])
+        setProductsError('')
       } catch (error) {
-        if (isMounted) {
-          setProducts([])
-          setProductsError(error instanceof Error ? error.message : 'Erro ao buscar produtos')
-        }
+        setProducts([])
+        setProductsError(error instanceof Error ? error.message : 'Erro ao buscar produtos')
       } finally {
-        if (isMounted) {
-          setProductsLoading(false)
-        }
+        setProductsLoading(false)
       }
     }
 
     loadBudgetDetails()
     loadProducts()
-
-    return () => {
-      isMounted = false
-    }
-  }, [id])
+  }, [loadBudgetDetails])
 
   const handleAddItem = () => {
     const selectedProduct = products.find((product) => String(product.id) === selectedProductId)
@@ -239,6 +316,117 @@ function OrcamentoDetalhes() {
 
   const handleRemoveItem = (itemId) => {
     setItems((current) => current.filter((item) => item.id !== itemId))
+  }
+
+  const openAddEsquadriaModal = async () => {
+    setIsAddEsquadriaModalOpen(true)
+    resetAddEsquadriaForm()
+    await loadAddEsquadriaDependencies()
+  }
+
+  const closeAddEsquadriaModal = () => {
+    setIsAddEsquadriaModalOpen(false)
+    resetAddEsquadriaForm()
+  }
+
+  const handleAddEsquadriaFieldChange = async (field, value) => {
+    const nextForm = {
+      ...addEsquadriaForm,
+      [field]: value,
+    }
+    if (field === 'corId' || field === 'linhaId') {
+      nextForm.produtoId = ''
+      setFilteredProducts([])
+    }
+    setAddEsquadriaForm(nextForm)
+
+    if (
+      (field === 'corId' || field === 'linhaId') &&
+      nextForm.corId &&
+      nextForm.linhaId
+    ) {
+      await loadProdutosPorCorLinha(nextForm.linhaId, nextForm.corId)
+    }
+  }
+
+  const validateAddEsquadriaForm = () => {
+    if (!addEsquadriaForm.produtoId || addEsquadriaForm.produtoId === '0') {
+      setAddEsquadriaError('Selecione um produto')
+      return false
+    }
+    if (
+      !addEsquadriaForm.quantidade ||
+      Number.parseFloat(addEsquadriaForm.quantidade) <= 0
+    ) {
+      setAddEsquadriaError('Informe a quantidade')
+      return false
+    }
+    if (!addEsquadriaForm.largura || Number.parseFloat(addEsquadriaForm.largura) <= 0) {
+      setAddEsquadriaError('Informe a largura')
+      return false
+    }
+    if (!addEsquadriaForm.altura || Number.parseFloat(addEsquadriaForm.altura) <= 0) {
+      setAddEsquadriaError('Informe a altura')
+      return false
+    }
+    if (!addEsquadriaForm.codigo.trim()) {
+      setAddEsquadriaError('Informe o código')
+      return false
+    }
+    if (!addEsquadriaForm.vidroId || addEsquadriaForm.vidroId === '0') {
+      setAddEsquadriaError('Selecione um vidro')
+      return false
+    }
+    setAddEsquadriaError('')
+    return true
+  }
+
+  const handleAddEsquadriaSubmit = async (event) => {
+    event.preventDefault()
+    if (!validateAddEsquadriaForm()) {
+      return
+    }
+
+    const orcamentoId = Number.parseInt(id ?? '', 10)
+    if (!orcamentoId) {
+      setAddEsquadriaError('Orçamento inválido')
+      return
+    }
+
+    try {
+      setAddEsquadriaSubmitting(true)
+      const response = await fetch(`${API_BASE_URL}/api/orcamentos/adicionar-esquadria`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orcamentoId,
+          produtoId: Number.parseInt(addEsquadriaForm.produtoId, 10),
+          quantidade: Number.parseFloat(addEsquadriaForm.quantidade),
+          largura: Number.parseFloat(addEsquadriaForm.largura),
+          altura: Number.parseFloat(addEsquadriaForm.altura),
+          codigo: addEsquadriaForm.codigo.trim(),
+          ambiente: addEsquadriaForm.ambiente.trim(),
+          vidroId: Number.parseInt(addEsquadriaForm.vidroId, 10),
+          observacao: addEsquadriaForm.observacao.trim(),
+        }),
+      })
+
+      if (!response.ok) {
+        const message = await response.text()
+        throw new Error(message || 'Não foi possível adicionar a esquadria')
+      }
+
+      await loadBudgetDetails()
+      closeAddEsquadriaModal()
+    } catch (error) {
+      setAddEsquadriaError(
+        error instanceof Error ? error.message : 'Erro ao adicionar esquadria'
+      )
+    } finally {
+      setAddEsquadriaSubmitting(false)
+    }
   }
 
   const totalValue = items.reduce((sum, item) => sum + item.total, 0)
@@ -549,7 +737,7 @@ function OrcamentoDetalhes() {
           </div>
 
           <div className="budget-detail-actions">
-            <button className="chip-button" type="button">
+            <button className="chip-button" type="button" onClick={openAddEsquadriaModal}>
               Adicionar Esquadria
             </button>
             <button className="chip-button" type="button">
@@ -875,6 +1063,209 @@ function OrcamentoDetalhes() {
             )}
           </div>
         </section>
+
+        {isAddEsquadriaModalOpen && (
+          <div className="modal-overlay" role="dialog" aria-modal="true">
+            <div className="modal-content budget-add-esquadria-modal">
+              <div className="modal-header">
+                <h2>Adicionar Esquadria</h2>
+                <button type="button" className="icon-button" onClick={closeAddEsquadriaModal}>
+                  X
+                </button>
+              </div>
+
+              <form className="modal-form" onSubmit={handleAddEsquadriaSubmit}>
+                <label className="modal-form-group">
+                  Cor
+                  <select
+                    className="modal-select"
+                    value={addEsquadriaForm.corId}
+                    onChange={(event) => {
+                      handleAddEsquadriaFieldChange('corId', event.target.value)
+                    }}
+                    disabled={addEsquadriaLoading || addEsquadriaSubmitting}
+                  >
+                    <option value="">Selecione</option>
+                    {colorOptions.map((cor) => (
+                      <option key={cor.id} value={cor.id}>
+                        {cor.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="modal-form-group">
+                  Linha
+                  <select
+                    className="modal-select"
+                    value={addEsquadriaForm.linhaId}
+                    onChange={(event) => {
+                      handleAddEsquadriaFieldChange('linhaId', event.target.value)
+                    }}
+                    disabled={addEsquadriaLoading || addEsquadriaSubmitting}
+                  >
+                    <option value="">Selecione</option>
+                    {lineOptions.map((linha) => (
+                      <option key={linha.id} value={linha.id}>
+                        {linha.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="modal-form-group modal-form-group-full">
+                  Produto
+                  <select
+                    className="modal-select"
+                    value={addEsquadriaForm.produtoId}
+                    onChange={(event) => {
+                      handleAddEsquadriaFieldChange('produtoId', event.target.value)
+                    }}
+                    disabled={
+                      addEsquadriaLoading ||
+                      addEsquadriaSubmitting ||
+                      filteredProductsLoading ||
+                      !addEsquadriaForm.corId ||
+                      !addEsquadriaForm.linhaId
+                    }
+                  >
+                    <option value="0">Selecione</option>
+                    {filteredProducts.map((produto) => (
+                      <option key={produto.id} value={produto.id}>
+                        {produto.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="modal-form-group">
+                  Quantidade
+                  <input
+                    className="modal-input"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={addEsquadriaForm.quantidade}
+                    onChange={(event) => {
+                      handleAddEsquadriaFieldChange('quantidade', event.target.value)
+                    }}
+                    disabled={addEsquadriaSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Largura
+                  <input
+                    className="modal-input"
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={addEsquadriaForm.largura}
+                    onChange={(event) => {
+                      handleAddEsquadriaFieldChange('largura', event.target.value)
+                    }}
+                    disabled={addEsquadriaSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Altura
+                  <input
+                    className="modal-input"
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={addEsquadriaForm.altura}
+                    onChange={(event) => {
+                      handleAddEsquadriaFieldChange('altura', event.target.value)
+                    }}
+                    disabled={addEsquadriaSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Código
+                  <input
+                    className="modal-input"
+                    type="text"
+                    value={addEsquadriaForm.codigo}
+                    onChange={(event) => {
+                      handleAddEsquadriaFieldChange('codigo', event.target.value)
+                    }}
+                    disabled={addEsquadriaSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group modal-form-group-full">
+                  Ambiente
+                  <input
+                    className="modal-input"
+                    type="text"
+                    value={addEsquadriaForm.ambiente}
+                    onChange={(event) => {
+                      handleAddEsquadriaFieldChange('ambiente', event.target.value)
+                    }}
+                    disabled={addEsquadriaSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group modal-form-group-full">
+                  Vidro
+                  <select
+                    className="modal-select"
+                    value={addEsquadriaForm.vidroId}
+                    onChange={(event) => {
+                      handleAddEsquadriaFieldChange('vidroId', event.target.value)
+                    }}
+                    disabled={addEsquadriaLoading || addEsquadriaSubmitting}
+                  >
+                    <option value="0">Selecione</option>
+                    {glassOptions.map((vidro) => (
+                      <option key={vidro.id} value={vidro.id}>
+                        {vidro.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="modal-form-group modal-form-group-full">
+                  Observação
+                  <input
+                    className="modal-input"
+                    type="text"
+                    value={addEsquadriaForm.observacao}
+                    onChange={(event) => {
+                      handleAddEsquadriaFieldChange('observacao', event.target.value)
+                    }}
+                    disabled={addEsquadriaSubmitting}
+                  />
+                </label>
+
+                {(addEsquadriaError || filteredProductsLoading) && (
+                  <div className="modal-form-group-full budget-modal-feedback">
+                    {filteredProductsLoading
+                      ? 'Carregando produtos...'
+                      : addEsquadriaError}
+                  </div>
+                )}
+
+                <div className="modal-form-group-full budget-add-modal-actions">
+                  <button
+                    type="button"
+                    className="chip-button"
+                    onClick={closeAddEsquadriaModal}
+                    disabled={addEsquadriaSubmitting}
+                  >
+                    Fechar
+                  </button>
+                  <button type="submit" className="chip-button" disabled={addEsquadriaSubmitting}>
+                    {addEsquadriaSubmitting ? 'Adicionando...' : 'Adicionar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )

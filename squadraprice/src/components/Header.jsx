@@ -1,7 +1,48 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
 function Header() {
   const navigate = useNavigate()
+  const [searchValue, setSearchValue] = useState('')
+  const [latestBudgets, setLatestBudgets] = useState([])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadLatestBudgets = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/orcamentos`)
+        if (!response.ok) {
+          return
+        }
+        const data = await response.json()
+        if (!isMounted || !Array.isArray(data)) {
+          return
+        }
+        setLatestBudgets(data.slice(0, 15))
+      } catch {
+        if (isMounted) {
+          setLatestBudgets([])
+        }
+      }
+    }
+
+    loadLatestBudgets()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const handleSearchSubmit = () => {
+    const normalized = searchValue.trim()
+    if (!normalized) {
+      return
+    }
+    navigate(`/Orcamentos/${normalized}`)
+  }
 
   return (
     <header className="topbar">
@@ -15,8 +56,20 @@ function Header() {
         </div>
 
         <div className="search">
-          <input type="text" placeholder="Orcamento" aria-label="Pesquisar" />
-          <button type="button" className="icon-button" aria-label="Buscar">
+          <input
+            type="text"
+            placeholder="Orcamento"
+            aria-label="Pesquisar"
+            value={searchValue}
+            onChange={(event) => setSearchValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                handleSearchSubmit()
+              }
+            }}
+          />
+          <button type="button" className="icon-button" aria-label="Buscar" onClick={handleSearchSubmit}>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="M11 4a7 7 0 0 1 5.48 11.37l3.58 3.58-1.41 1.41-3.58-3.58A7 7 0 1 1 11 4zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"
@@ -26,10 +79,22 @@ function Header() {
           </button>
         </div>
 
-        <select className="topbar-select" aria-label="Ultimos Orcamentos">
-          <option>Ultimos Orcamentos</option>
-          <option>Orcamento 2217</option>
-          <option>Orcamento 2216</option>
+        <select
+          className="topbar-select"
+          aria-label="Ultimos Orcamentos"
+          defaultValue=""
+          onChange={(event) => {
+            if (event.target.value) {
+              navigate(`/Orcamentos/${event.target.value}`)
+            }
+          }}
+        >
+          <option value="">Ultimos Orcamentos</option>
+          {latestBudgets.map((budget) => (
+            <option key={budget.id} value={budget.id}>
+              #{budget.id} - v{budget.versao || '1'} - {budget.cliente || 'Cliente'}
+            </option>
+          ))}
         </select>
 
         <div className="topbar-actions">

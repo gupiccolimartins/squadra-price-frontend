@@ -25,7 +25,7 @@ function Home() {
     {
       title: 'Operacional',
       items: [
-        { label: 'Criar Orcamento', icon: 'CO' },
+        { label: 'Criar Orcamento', icon: 'CO', to: '/CriarOrcamento' },
         { label: 'Listar Orcamentos', icon: 'LO', to: '/Orcamentos' },
         { label: 'Agenda de Representantes', icon: 'AR' },
       ],
