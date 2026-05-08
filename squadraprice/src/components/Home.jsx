@@ -11,7 +11,7 @@ function Home() {
         { label: 'Constantes', icon: 'CO', to: '/Constantes' },
         { label: 'Cidade / Estado', icon: 'CE', to: '/Cidades' },
         { label: 'Texto de Orcamento', icon: 'TO', to: '/ModeloOrcamento' },
-        { label: 'Fornecedores', icon: 'FO' },
+        { label: 'Fornecedores', icon: 'FO', to: '/Fornecedores' },
       ],
     },
     {

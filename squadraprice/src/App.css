@@ -439,6 +439,40 @@
   color: #b42318;
 }
 
+.family-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.family-pvc {
+  background: #e0f0ff;
+  color: #0b5f8f;
+}
+
+.family-aluminio {
+  background: #f0eaff;
+  color: #6b3fa0;
+}
+
+.family-unidade {
+  background: #fff4e0;
+  color: #8a6100;
+}
+
+.alert-warning {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  color: #8a6d00;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
 .edit-button {
   color: #0b5f8f;
 }
@@ -685,6 +719,41 @@
   color: #5f6b7a;
   display: flex;
   justify-content: flex-start;
+}
+
+.calculate-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  padding: 16px 0;
+}
+
+.calculate-results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.calculate-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.calculate-category {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calculate-category h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
 }
 
 .products-create-form {

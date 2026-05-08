@@ -43,11 +43,47 @@ function Produtos() {
   const [isCreateSaving, setIsCreateSaving] = useState(false)
   const [createErrorMessage, setCreateErrorMessage] = useState('')
   const [isParentProductsLoading, setIsParentProductsLoading] = useState(false)
+
+  // Edit modal states
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingProduct, setEditingProduct] = useState(null)
+  const [isEditSaving, setIsEditSaving] = useState(false)
+  const [editErrorMessage, setEditErrorMessage] = useState('')
+  const [editParentProducts, setEditParentProducts] = useState([])
+  const [isEditParentProductsLoading, setIsEditParentProductsLoading] = useState(false)
+  const [editForm, setEditForm] = useState({
+    categoryId: '1',
+    colorId: '1',
+    lineId: '1',
+    accessoryCategoryId: '0',
+    familyType: 'PVC',
+    name: '',
+    welds: '',
+    minHeight: '',
+    maxHeight: '',
+    minWidth: '',
+    maxWidth: '',
+    statusId: '1',
+    parentColorId: '1',
+    parentLineId: '1',
+    parentProductId: '0',
+    file: null,
+  })
+
+  // Calculate modal states
+  const [isCalculateModalOpen, setIsCalculateModalOpen] = useState(false)
+  const [calculateProduct, setCalculateProduct] = useState(null)
+  const [calculateGlasses, setCalculateGlasses] = useState([])
+  const [calculateForm, setCalculateForm] = useState({ vidroId: '0', largura: '', altura: '' })
+  const [calculateResult, setCalculateResult] = useState(null)
+  const [isCalculating, setIsCalculating] = useState(false)
+  const [calculateErrorMessage, setCalculateErrorMessage] = useState('')
   const [createForm, setCreateForm] = useState({
     categoryId: '1',
     colorId: '1',
     lineId: '1',
     accessoryCategoryId: '0',
+    familyType: 'PVC',
     name: '',
     welds: '',
     minHeight: '',
@@ -180,6 +216,7 @@ function Produtos() {
       colorId: '1',
       lineId: '1',
       accessoryCategoryId: '0',
+      familyType: 'PVC',
       name: '',
       welds: '',
       minHeight: '',
@@ -297,6 +334,7 @@ function Produtos() {
       formData.append('accessoryCategoryId', shouldDisableAccessory ? '0' : createForm.accessoryCategoryId)
       formData.append('colorId', shouldDisableColorLineAndParent ? '1' : createForm.colorId)
       formData.append('lineId', shouldDisableColorLineAndParent ? '1' : createForm.lineId)
+      formData.append('familyType', createForm.familyType)
       formData.append('name', createForm.name.trim())
       formData.append('welds', createForm.welds)
       formData.append('statusId', createForm.statusId)
@@ -450,7 +488,12 @@ function Produtos() {
         }),
       })
       if (!response.ok) {
-        throw new Error(`Falha ao salvar vinculo (${response.status})`)
+        let errorMessage = `Falha ao salvar vinculo (${response.status})`
+        try {
+          const errorBody = await response.json()
+          if (errorBody?.message) errorMessage = errorBody.message
+        } catch (_) {}
+        throw new Error(errorMessage)
       }
 
       resetInsumoForm()
@@ -490,6 +533,248 @@ function Produtos() {
       await loadProductInsumos(selectedProduct.id)
     } catch (error) {
       setInsumosErrorMessage(error instanceof Error ? error.message : 'Erro ao excluir vinculo')
+    }
+  }
+
+  // ── Edit handlers ──────────────────────────────────────────────────────────
+
+  const loadEditParentProducts = useCallback(async (lineId, colorId, categoryId) => {
+    if (!lineId || !colorId) {
+      setEditParentProducts([])
+      return
+    }
+    try {
+      setIsEditParentProductsLoading(true)
+      const response = await fetch(
+        `${API_BASE_URL}/api/products/parent-options?lineId=${lineId}&colorId=${colorId}&categoryId=${categoryId || 1}`
+      )
+      if (!response.ok) throw new Error(`Falha ao buscar produtos pai (${response.status})`)
+      const data = await response.json()
+      setEditParentProducts(Array.isArray(data) ? data : [])
+    } catch {
+      setEditParentProducts([])
+    } finally {
+      setIsEditParentProductsLoading(false)
+    }
+  }, [])
+
+  const handleOpenEditModal = async (product) => {
+    setEditErrorMessage('')
+    setEditParentProducts([])
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/products/${product.id}`)
+      if (!response.ok) throw new Error(`Falha ao carregar produto (${response.status})`)
+      const detail = await response.json()
+      const form = {
+        categoryId: String(detail.categoryId ?? '1'),
+        colorId: String(detail.colorId ?? '1'),
+        lineId: String(detail.lineId ?? '1'),
+        accessoryCategoryId: String(detail.accessoryCategoryId ?? '0'),
+        familyType: detail.familyType ?? 'PVC',
+        name: detail.name ?? '',
+        welds: detail.welds != null ? String(detail.welds) : '',
+        minHeight: detail.minHeight != null ? String(detail.minHeight) : '',
+        maxHeight: detail.maxHeight != null ? String(detail.maxHeight) : '',
+        minWidth: detail.minWidth != null ? String(detail.minWidth) : '',
+        maxWidth: detail.maxWidth != null ? String(detail.maxWidth) : '',
+        statusId: String(detail.statusId ?? '1'),
+        parentColorId: String(detail.parentColorId ?? '1'),
+        parentLineId: String(detail.parentLineId ?? '1'),
+        parentProductId: String(detail.parentProductId ?? '0'),
+        file: null,
+      }
+      setEditForm(form)
+      setEditingProduct(detail)
+      setIsEditModalOpen(true)
+      if (detail.parentColorId && detail.parentLineId) {
+        await loadEditParentProducts(detail.parentLineId, detail.parentColorId, detail.categoryId)
+      }
+    } catch (error) {
+      setEditErrorMessage(error instanceof Error ? error.message : 'Erro ao carregar produto')
+    }
+  }
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false)
+    setEditingProduct(null)
+    setEditErrorMessage('')
+    setEditParentProducts([])
+  }
+
+  const handleEditChange = (field) => (event) => {
+    const value = event.target.value
+    setEditForm((prev) => {
+      const next = { ...prev, [field]: value }
+      if (field === 'categoryId') {
+        if (value === '1') next.accessoryCategoryId = '0'
+        if (value === '3' || value === '4') next.parentProductId = '0'
+      }
+      return next
+    })
+    setEditErrorMessage('')
+  }
+
+  const handleEditParentColorChange = (event) => {
+    const value = event.target.value
+    setEditForm((prev) => ({ ...prev, parentColorId: value, parentProductId: '0' }))
+    setEditErrorMessage('')
+  }
+
+  const handleEditParentLineChange = (event) => {
+    const value = event.target.value
+    setEditForm((prev) => ({ ...prev, parentLineId: value, parentProductId: '0' }))
+    setEditErrorMessage('')
+  }
+
+  const handleEditFileChange = (event) => {
+    const selectedFile = event.target.files?.[0] ?? null
+    setEditForm((prev) => ({ ...prev, file: selectedFile }))
+  }
+
+  const shouldEditDisableColorLineAndParent =
+    editForm.categoryId === '3' || editForm.categoryId === '4'
+  const shouldEditDisableAccessory = editForm.categoryId === '1'
+
+  const handleEditSubmit = async (event) => {
+    event.preventDefault()
+    if (!editingProduct?.id) return
+    setIsEditSaving(true)
+    setEditErrorMessage('')
+    try {
+      const formData = new FormData()
+      formData.append('categoryId', editForm.categoryId)
+      formData.append('accessoryCategoryId', shouldEditDisableAccessory ? '0' : editForm.accessoryCategoryId)
+      formData.append('colorId', shouldEditDisableColorLineAndParent ? '1' : editForm.colorId)
+      formData.append('lineId', shouldEditDisableColorLineAndParent ? '1' : editForm.lineId)
+      formData.append('familyType', editForm.familyType)
+      formData.append('name', editForm.name.trim())
+      formData.append('welds', editForm.welds)
+      formData.append('statusId', editForm.statusId)
+      formData.append('parentProductId', shouldEditDisableColorLineAndParent ? '0' : editForm.parentProductId)
+      formData.append('minHeight', editForm.minHeight)
+      formData.append('maxHeight', editForm.maxHeight)
+      formData.append('minWidth', editForm.minWidth)
+      formData.append('maxWidth', editForm.maxWidth)
+      if (editForm.file) formData.append('file', editForm.file)
+
+      const response = await fetch(`${API_BASE_URL}/api/products/${editingProduct.id}`, {
+        method: 'PUT',
+        body: formData,
+      })
+      if (!response.ok) throw new Error(`Falha ao editar produto (${response.status})`)
+
+      handleCloseEditModal()
+      fetchProducts(
+        { name: searchTerm.trim(), lineId: selectedLine, categoryId: selectedCategory, statusId: selectedStatus },
+        currentPage
+      )
+    } catch (error) {
+      setEditErrorMessage(error instanceof Error ? error.message : 'Erro ao editar produto')
+    } finally {
+      setIsEditSaving(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!isEditModalOpen || shouldEditDisableColorLineAndParent) {
+      setEditParentProducts([])
+      return
+    }
+    loadEditParentProducts(editForm.parentLineId, editForm.parentColorId, editForm.categoryId)
+  }, [
+    isEditModalOpen,
+    editForm.parentLineId,
+    editForm.parentColorId,
+    editForm.categoryId,
+    shouldEditDisableColorLineAndParent,
+    loadEditParentProducts,
+  ])
+
+  // ── Calculate handlers ─────────────────────────────────────────────────────
+
+  const handleOpenCalculateModal = async (product) => {
+    setCalculateProduct(product)
+    setCalculateResult(null)
+    setCalculateErrorMessage('')
+    setCalculateForm({ vidroId: '0', largura: '', altura: '' })
+    setIsCalculateModalOpen(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/products/active-glasses`)
+      if (!response.ok) throw new Error(`Falha ao carregar vidros (${response.status})`)
+      const data = await response.json()
+      setCalculateGlasses(Array.isArray(data) ? data : [])
+    } catch {
+      setCalculateGlasses([])
+    }
+  }
+
+  const handleCloseCalculateModal = () => {
+    setIsCalculateModalOpen(false)
+    setCalculateProduct(null)
+    setCalculateResult(null)
+    setCalculateErrorMessage('')
+    setCalculateForm({ vidroId: '0', largura: '', altura: '' })
+  }
+
+  const handleCalculateSubmit = async (event) => {
+    event.preventDefault()
+    if (!calculateProduct?.id) return
+    const largura = parseFloat(calculateForm.largura)
+    const altura = parseFloat(calculateForm.altura)
+    if (!Number.isFinite(largura) || largura <= 0) {
+      setCalculateErrorMessage('Informe uma largura válida.')
+      return
+    }
+    if (!Number.isFinite(altura) || altura <= 0) {
+      setCalculateErrorMessage('Informe uma altura válida.')
+      return
+    }
+    setIsCalculating(true)
+    setCalculateErrorMessage('')
+    setCalculateResult(null)
+    try {
+      const params = new URLSearchParams({ largura, altura })
+      if (calculateForm.vidroId && calculateForm.vidroId !== '0') {
+        params.append('vidroId', calculateForm.vidroId)
+      }
+      const response = await fetch(
+        `${API_BASE_URL}/api/products/${calculateProduct.id}/calculate?${params}`
+      )
+      if (!response.ok) throw new Error(`Falha ao calcular produto (${response.status})`)
+      const data = await response.json()
+      setCalculateResult(data)
+    } catch (error) {
+      setCalculateErrorMessage(error instanceof Error ? error.message : 'Erro ao calcular produto')
+    } finally {
+      setIsCalculating(false)
+    }
+  }
+
+  // ── Duplicate handler ──────────────────────────────────────────────────────
+
+  const handleDuplicate = async (product) => {
+    const confirmed = window.confirm('Você deseja duplicar o Produto?')
+    if (!confirmed) {
+      return
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/products/${product.id}/duplicate`, {
+        method: 'POST',
+      })
+      if (!response.ok) {
+        throw new Error(`Falha ao duplicar produto (${response.status})`)
+      }
+      fetchProducts(
+        {
+          name: searchTerm.trim(),
+          lineId: selectedLine,
+          categoryId: selectedCategory,
+          statusId: selectedStatus,
+        },
+        currentPage
+      )
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Erro ao duplicar produto')
     }
   }
 
@@ -736,6 +1021,7 @@ function Produtos() {
               <tr>
                 <th>Id</th>
                 <th>Nome</th>
+                <th>Familia</th>
                 <th>Insumos</th>
                 <th>Categoria</th>
                 <th>Soldas</th>
@@ -750,23 +1036,28 @@ function Produtos() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={11}>Carregando produtos...</td>
+                  <td colSpan={12}>Carregando produtos...</td>
                 </tr>
               )}
               {!isLoading && errorMessage && (
                 <tr>
-                  <td colSpan={11}>{errorMessage}</td>
+                  <td colSpan={12}>{errorMessage}</td>
                 </tr>
               )}
               {!isLoading && !errorMessage && products.length === 0 && (
                 <tr>
-                  <td colSpan={11}>Nenhum produto encontrado.</td>
+                  <td colSpan={12}>Nenhum produto encontrado.</td>
                 </tr>
               )}
               {products.map((product) => (
                 <tr key={product.id}>
                   <td>{product.id}</td>
                   <td>{product.name}</td>
+                  <td>
+                    <span className={`family-badge family-${(product.familyType || 'PVC').toLowerCase()}`}>
+                      {product.familyLabel || 'PVC'}
+                    </span>
+                  </td>
                   <td>
                     <button
                       className="products-link-button"
@@ -792,7 +1083,13 @@ function Produtos() {
                     </span>
                   </td>
                   <td className="products-actions">
-                    <button className="icon-button edit-button" type="button" aria-label="Editar">
+                    <button
+                      className="icon-button edit-button"
+                      type="button"
+                      aria-label="Editar"
+                      title="Editar Produto"
+                      onClick={() => handleOpenEditModal(product)}
+                    >
                       <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path
                           d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.47-8.47.92.92-8.47 8.47zM20.71 7.04a1 1 0 0 0 0-1.41L18.37 3.3a1 1 0 0 0-1.41 0l-1.75 1.75 3.75 3.75 1.75-1.75z"
@@ -800,7 +1097,13 @@ function Produtos() {
                         />
                       </svg>
                     </button>
-                    <button className="icon-button edit-button" type="button" aria-label="Duplicar">
+                    <button
+                      className="icon-button edit-button"
+                      type="button"
+                      aria-label="Duplicar"
+                      title="Duplicar Produto"
+                      onClick={() => handleDuplicate(product)}
+                    >
                       <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path
                           d="M7 7h11v11H7zM5 5v11H3V5a2 2 0 0 1 2-2h11v2H5z"
@@ -808,7 +1111,13 @@ function Produtos() {
                         />
                       </svg>
                     </button>
-                    <button className="icon-button edit-button" type="button" aria-label="Detalhes">
+                    <button
+                      className="icon-button edit-button"
+                      type="button"
+                      aria-label="Efetuar Calculo"
+                      title="Efetuar Calculo"
+                      onClick={() => handleOpenCalculateModal(product)}
+                    >
                       <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path
                           d="M4 5h16v2H4zm0 6h16v2H4zm0 6h16v2H4z"
@@ -973,6 +1282,20 @@ function Produtos() {
                       {category.name}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="create-product-family">Familia do Produto</label>
+                <select
+                  id="create-product-family"
+                  className="modal-select"
+                  value={createForm.familyType}
+                  onChange={handleCreateChange('familyType')}
+                  required
+                >
+                  <option value="PVC">PVC</option>
+                  <option value="ALUMINIO">Aluminio</option>
                 </select>
               </div>
 
@@ -1149,6 +1472,12 @@ function Produtos() {
               </button>
             </header>
 
+            {selectedProduct?.familyType === 'ALUMINIO' && (
+              <div className="alert-warning">
+                A composicao deve ter insumos com regra por peso (R$/kg).
+              </div>
+            )}
+
             <section className="modal-form">
               <div className="modal-form-group">
                 <label htmlFor="insumo-search">Buscar Insumo</label>
@@ -1309,6 +1638,349 @@ function Produtos() {
                 {productInsumos.reduce((total, item) => total + (Number(item.quantity) || 0), 0)}
               </span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Modal ─────────────────────────────────────────────────── */}
+      {isEditModalOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={handleCloseEditModal}>
+          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
+            <header className="modal-header">
+              <div>
+                <h2>Editar Produto</h2>
+                <p className="modal-subtitle">{editingProduct?.name}</p>
+              </div>
+              <button className="primary-button" type="button" onClick={handleCloseEditModal}>
+                Voltar
+              </button>
+            </header>
+
+            <form className="modal-form products-create-form" onSubmit={handleEditSubmit}>
+              <div className="modal-form-group">
+                <label htmlFor="edit-product-category">Categoria</label>
+                <select
+                  id="edit-product-category"
+                  className="modal-select"
+                  value={editForm.categoryId}
+                  onChange={handleEditChange('categoryId')}
+                  required
+                >
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="edit-product-color">Cor</label>
+                <select
+                  id="edit-product-color"
+                  className="modal-select"
+                  value={editForm.colorId}
+                  onChange={handleEditChange('colorId')}
+                  disabled={shouldEditDisableColorLineAndParent}
+                >
+                  {colors.map((color) => (
+                    <option key={color.id} value={color.id}>{color.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="edit-product-line">Linha</label>
+                <select
+                  id="edit-product-line"
+                  className="modal-select"
+                  value={editForm.lineId}
+                  onChange={handleEditChange('lineId')}
+                  disabled={shouldEditDisableColorLineAndParent}
+                >
+                  {lines.map((line) => (
+                    <option key={line.id} value={line.id}>{line.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="edit-product-accessory">Acessorio</label>
+                <select
+                  id="edit-product-accessory"
+                  className="modal-select"
+                  value={editForm.accessoryCategoryId}
+                  onChange={handleEditChange('accessoryCategoryId')}
+                  disabled={shouldEditDisableAccessory}
+                >
+                  <option value="0">Selecione</option>
+                  {accessoryCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="edit-product-family">Familia do Produto</label>
+                <select
+                  id="edit-product-family"
+                  className="modal-select"
+                  value={editForm.familyType}
+                  onChange={handleEditChange('familyType')}
+                  required
+                >
+                  <option value="PVC">PVC</option>
+                  <option value="ALUMINIO">Aluminio</option>
+                </select>
+              </div>
+
+              <div className="modal-form-group modal-form-group-full">
+                <label htmlFor="edit-product-name">Produto</label>
+                <input
+                  id="edit-product-name"
+                  className="modal-input"
+                  type="text"
+                  value={editForm.name}
+                  onChange={handleEditChange('name')}
+                  placeholder="Nome do Produto"
+                  required
+                />
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="edit-product-welds">Qtde de Soldas</label>
+                <input id="edit-product-welds" className="modal-input" type="number" step="0.01"
+                  value={editForm.welds} onChange={handleEditChange('welds')} />
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="edit-product-min-height">Altura minima</label>
+                <input id="edit-product-min-height" className="modal-input" type="number" step="0.01"
+                  value={editForm.minHeight} onChange={handleEditChange('minHeight')} />
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="edit-product-max-height">Altura maxima</label>
+                <input id="edit-product-max-height" className="modal-input" type="number" step="0.01"
+                  value={editForm.maxHeight} onChange={handleEditChange('maxHeight')} />
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="edit-product-min-width">Largura minima</label>
+                <input id="edit-product-min-width" className="modal-input" type="number" step="0.01"
+                  value={editForm.minWidth} onChange={handleEditChange('minWidth')} />
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="edit-product-max-width">Largura maxima</label>
+                <input id="edit-product-max-width" className="modal-input" type="number" step="0.01"
+                  value={editForm.maxWidth} onChange={handleEditChange('maxWidth')} />
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="edit-product-status">Status</label>
+                <select
+                  id="edit-product-status"
+                  className="modal-select"
+                  value={editForm.statusId}
+                  onChange={handleEditChange('statusId')}
+                >
+                  <option value="1">Ativo</option>
+                  <option value="2">Inativo</option>
+                </select>
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="edit-product-parent-color">Cor Produto Pai</label>
+                <select
+                  id="edit-product-parent-color"
+                  className="modal-select"
+                  value={editForm.parentColorId}
+                  onChange={handleEditParentColorChange}
+                  disabled={shouldEditDisableColorLineAndParent}
+                >
+                  {colors.map((color) => (
+                    <option key={color.id} value={color.id}>{color.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="edit-product-parent-line">Linha Prod. Pai</label>
+                <select
+                  id="edit-product-parent-line"
+                  className="modal-select"
+                  value={editForm.parentLineId}
+                  onChange={handleEditParentLineChange}
+                  disabled={shouldEditDisableColorLineAndParent}
+                >
+                  {lines.map((line) => (
+                    <option key={line.id} value={line.id}>{line.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="modal-form-group modal-form-group-full">
+                <label htmlFor="edit-product-parent-product">Produto Pai</label>
+                <select
+                  id="edit-product-parent-product"
+                  className="modal-select"
+                  value={editForm.parentProductId}
+                  onChange={handleEditChange('parentProductId')}
+                  disabled={shouldEditDisableColorLineAndParent}
+                >
+                  <option value="0">
+                    {isEditParentProductsLoading ? 'Carregando...' : 'Selecione'}
+                  </option>
+                  {editParentProducts.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="modal-form-group modal-form-group-full">
+                <label htmlFor="edit-product-file">Foto do produto</label>
+                <input id="edit-product-file" type="file" onChange={handleEditFileChange} />
+              </div>
+
+              {editErrorMessage && (
+                <p className="products-create-error">{editErrorMessage}</p>
+              )}
+
+              <div className="products-create-actions">
+                <button className="primary-button" type="submit" disabled={isEditSaving}>
+                  {isEditSaving ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Calculate Modal ────────────────────────────────────────────── */}
+      {isCalculateModalOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={handleCloseCalculateModal}>
+          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
+            <header className="modal-header">
+              <div>
+                <h2>Efetuar Calculo</h2>
+                <p className="modal-subtitle">{calculateProduct?.name}</p>
+              </div>
+              <button className="primary-button" type="button" onClick={handleCloseCalculateModal}>
+                Voltar
+              </button>
+            </header>
+
+            <form className="modal-form calculate-form" onSubmit={handleCalculateSubmit}>
+              <div className="modal-form-group">
+                <label htmlFor="calc-vidro">Vidro</label>
+                <select
+                  id="calc-vidro"
+                  className="modal-select"
+                  value={calculateForm.vidroId}
+                  onChange={(e) => setCalculateForm((prev) => ({ ...prev, vidroId: e.target.value }))}
+                >
+                  <option value="0">Nenhum Vidro</option>
+                  {calculateGlasses.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="calc-largura">Largura (mm)</label>
+                <input
+                  id="calc-largura"
+                  className="modal-input"
+                  type="number"
+                  step="1"
+                  placeholder="Largura"
+                  value={calculateForm.largura}
+                  onChange={(e) => setCalculateForm((prev) => ({ ...prev, largura: e.target.value }))}
+                />
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="calc-altura">Altura (mm)</label>
+                <input
+                  id="calc-altura"
+                  className="modal-input"
+                  type="number"
+                  step="1"
+                  placeholder="Altura"
+                  value={calculateForm.altura}
+                  onChange={(e) => setCalculateForm((prev) => ({ ...prev, altura: e.target.value }))}
+                />
+              </div>
+
+              <div className="modal-form-group">
+                <button className="primary-button" type="submit" disabled={isCalculating}>
+                  {isCalculating ? 'Calculando...' : 'Calcular'}
+                </button>
+              </div>
+            </form>
+
+            {calculateErrorMessage && (
+              <p className="products-create-error">{calculateErrorMessage}</p>
+            )}
+
+            {calculateResult && (
+              <section className="calculate-results">
+                <div className="calculate-summary">
+                  <strong>{calculateResult.productName}</strong>
+                  <span>
+                    Dimensões: {calculateForm.largura}mm x {calculateForm.altura}mm
+                  </span>
+                  <span>
+                    <strong>Vidro: {calculateResult.glassName}</strong>
+                  </span>
+                  <span>
+                    <strong>Material: R$ {calculateResult.totalMaterial.toFixed(2)}</strong>
+                  </span>
+                </div>
+
+                {calculateResult.categories.map((cat) => (
+                  <div key={cat.categoryName} className="calculate-category">
+                    <h4>{cat.categoryName} (R$ {cat.total.toFixed(2)})</h4>
+                    <table className="products-table">
+                      <thead>
+                        <tr>
+                          <th>Código</th>
+                          <th>Formula</th>
+                          <th>Qtde</th>
+                          <th>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cat.items.map((item, idx) => (
+                          <tr key={idx}>
+                            <td><strong>{item.code}</strong></td>
+                            <td>{item.formula}</td>
+                            <td>{item.calculatedQty.toFixed(4)}{item.unitLabel ? ` ${item.unitLabel}` : ''}</td>
+                            <td>R$ {item.total.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+
+                {calculateResult.glassTotal > 0 && (
+                  <div className="calculate-category">
+                    <h4>Vidro (R$ {calculateResult.glassTotal.toFixed(2)})</h4>
+                    <table className="products-table">
+                      <thead>
+                        <tr><th>Vidro</th><th>Total</th></tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>{calculateResult.glassName}</td>
+                          <td>R$ {calculateResult.glassTotal.toFixed(2)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         </div>
       )}

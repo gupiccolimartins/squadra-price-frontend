@@ -11,6 +11,7 @@ import Orcamentos from './components/Orcamentos'
 import OrcamentoDetalhes from './components/OrcamentoDetalhes'
 import ModeloOrcamento from './components/ModeloOrcamento'
 import CriarOrcamento from './components/CriarOrcamento'
+import Fornecedores from './components/Fornecedores'
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
       <Route path="/Orcamentos/:id" element={<OrcamentoDetalhes />} />
       <Route path="/CriarOrcamento" element={<CriarOrcamento />} />
       <Route path="/ModeloOrcamento" element={<ModeloOrcamento />} />
+      <Route path="/Fornecedores" element={<Fornecedores />} />
       <Route path="*" element={<Home />} />
     </Routes>
   )
