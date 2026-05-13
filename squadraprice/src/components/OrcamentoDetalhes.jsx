@@ -14,10 +14,12 @@ const fallbackBudget = (id) => ({
   local: 'Local não informado',
   status: 'Em elaboração',
   usuario: 'Usuário',
+  usuarioTelefone: '',
   representante: 'Representante',
   criadoEm: '01/01/2026 09:00',
   atualizadoEm: '01/01/2026 09:00',
   versao: '1',
+  versoes: [],
 })
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
@@ -118,6 +120,11 @@ function OrcamentoDetalhes() {
   const [glassOptions, setGlassOptions] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
   const [filteredProductsLoading, setFilteredProductsLoading] = useState(false)
+  const [editingMedidas, setEditingMedidas] = useState({})
+  const [savingMedidas, setSavingMedidas] = useState({})
+  const [editingVidro, setEditingVidro] = useState({})
+  const [savingVidro, setSavingVidro] = useState({})
+  const [editingProduto, setEditingProduto] = useState(null)
   const [addEsquadriaForm, setAddEsquadriaForm] = useState({
     corId: '',
     linhaId: '',
@@ -130,6 +137,27 @@ function OrcamentoDetalhes() {
     vidroId: '',
     observacao: '',
   })
+
+  const [isEditOrcamentoModalOpen, setIsEditOrcamentoModalOpen] = useState(false)
+  const [editOrcamentoSubmitting, setEditOrcamentoSubmitting] = useState(false)
+  const [editOrcamentoError, setEditOrcamentoError] = useState('')
+  const [editOrcamentoForm, setEditOrcamentoForm] = useState({})
+  const [estadoOptions, setEstadoOptions] = useState([])
+  const [cidadeOptions, setCidadeOptions] = useState([])
+  const [cidadesLoading, setCidadesLoading] = useState(false)
+  const [editOrcamentoUfId, setEditOrcamentoUfId] = useState('')
+
+  const [isAlterarStatusModalOpen, setIsAlterarStatusModalOpen] = useState(false)
+  const [statusOptions, setStatusOptions] = useState([])
+  const [selectedStatusId, setSelectedStatusId] = useState('')
+  const [alterarStatusSubmitting, setAlterarStatusSubmitting] = useState(false)
+  const [alterarStatusError, setAlterarStatusError] = useState('')
+
+  const [isAlterarUsuarioModalOpen, setIsAlterarUsuarioModalOpen] = useState(false)
+  const [usuarioOptions, setUsuarioOptions] = useState([])
+  const [selectedUsuarioId, setSelectedUsuarioId] = useState('')
+  const [alterarUsuarioSubmitting, setAlterarUsuarioSubmitting] = useState(false)
+  const [alterarUsuarioError, setAlterarUsuarioError] = useState('')
 
   const initialBudget = useMemo(() => {
     const stateBudget = location.state?.budget
@@ -256,6 +284,105 @@ function OrcamentoDetalhes() {
     }
   }, [])
 
+  const startEditingMedidas = useCallback((produtoId, largura, altura) => {
+    setEditingMedidas((current) => ({
+      ...current,
+      [produtoId]: { largura: String(largura ?? ''), altura: String(altura ?? '') },
+    }))
+  }, [])
+
+  const cancelEditingMedidas = useCallback((produtoId) => {
+    setEditingMedidas((current) => {
+      const next = { ...current }
+      delete next[produtoId]
+      return next
+    })
+  }, [])
+
+  const saveMedidas = useCallback(
+    async (produtoId) => {
+      const editing = editingMedidas[produtoId]
+      if (!editing) return
+      const largura = Number.parseFloat(editing.largura)
+      const altura = Number.parseFloat(editing.altura)
+      if (Number.isNaN(largura) || largura <= 0 || Number.isNaN(altura) || altura <= 0) return
+      try {
+        setSavingMedidas((current) => ({ ...current, [produtoId]: true }))
+        const response = await fetch(
+          `${API_BASE_URL}/api/orcamentos/produtos/${produtoId}/medidas`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ largura, altura }),
+          }
+        )
+        if (!response.ok) {
+          const msg = await response.text()
+          throw new Error(msg || 'Erro ao atualizar medidas')
+        }
+        cancelEditingMedidas(produtoId)
+        await loadBudgetDetails()
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Erro ao atualizar medidas')
+      } finally {
+        setSavingMedidas((current) => {
+          const next = { ...current }
+          delete next[produtoId]
+          return next
+        })
+      }
+    },
+    [editingMedidas, cancelEditingMedidas, loadBudgetDetails]
+  )
+
+  const startEditingVidro = useCallback((produtoId, vidroId) => {
+    setEditingVidro((current) => ({
+      ...current,
+      [produtoId]: String(vidroId ?? ''),
+    }))
+  }, [])
+
+  const cancelEditingVidro = useCallback((produtoId) => {
+    setEditingVidro((current) => {
+      const next = { ...current }
+      delete next[produtoId]
+      return next
+    })
+  }, [])
+
+  const saveVidro = useCallback(
+    async (produtoId) => {
+      const vidroId = editingVidro[produtoId]
+      if (!vidroId) return
+      try {
+        setSavingVidro((current) => ({ ...current, [produtoId]: true }))
+        const response = await fetch(
+          `${API_BASE_URL}/api/orcamentos/produtos/${produtoId}/vidro`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ vidroId: Number.parseInt(vidroId, 10) }),
+          }
+        )
+        if (!response.ok) {
+          const msg = await response.text()
+          throw new Error(msg || 'Erro ao atualizar vidro')
+        }
+        cancelEditingVidro(produtoId)
+        await loadBudgetDetails()
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Erro ao atualizar vidro')
+      } finally {
+        setSavingVidro((current) => {
+          const next = { ...current }
+          delete next[produtoId]
+          return next
+        })
+      }
+    },
+    [editingVidro, cancelEditingVidro, loadBudgetDetails]
+  )
+
   useEffect(() => {
     setBudget(initialBudget)
   }, [initialBudget])
@@ -326,8 +453,339 @@ function OrcamentoDetalhes() {
 
   const closeAddEsquadriaModal = () => {
     setIsAddEsquadriaModalOpen(false)
+    setEditingProduto(null)
     resetAddEsquadriaForm()
   }
+
+  const openEditEsquadriaModal = useCallback(
+    async (produto) => {
+      setEditingProduto(produto)
+      setIsAddEsquadriaModalOpen(true)
+      setAddEsquadriaError('')
+      await loadAddEsquadriaDependencies()
+      setAddEsquadriaForm({
+        corId: '',
+        linhaId: '',
+        produtoId: String(produto.produtoId ?? ''),
+        quantidade: String(produto.quantidade ?? ''),
+        largura: String(produto.largura ?? ''),
+        altura: String(produto.altura ?? ''),
+        codigo: produto.codigoPeca ?? '',
+        ambiente: produto.ambiente ?? '',
+        vidroId: String(produto.vidroId ?? ''),
+        observacao: produto.observacao ?? '',
+      })
+    },
+    [loadAddEsquadriaDependencies]
+  )
+
+  const loadCidadesByUf = useCallback(async (ufId) => {
+    if (!ufId) {
+      setCidadeOptions([])
+      return
+    }
+    try {
+      setCidadesLoading(true)
+      const resp = await fetch(`${API_BASE_URL}/api/cidades-estados/estados/${ufId}/cidades`)
+      if (resp.ok) {
+        const data = await resp.json()
+        setCidadeOptions(Array.isArray(data) ? data : [])
+      }
+    } catch {
+      setCidadeOptions([])
+    } finally {
+      setCidadesLoading(false)
+    }
+  }, [])
+
+  const openEditOrcamentoModal = useCallback(async () => {
+    setEditOrcamentoError('')
+    setEditOrcamentoForm({
+      engNome: budget.engNome ?? '',
+      clienteNome: budget.cliente ?? '',
+      clienteTel: budget.telefone ?? '',
+      clienteEmail: budget.email ?? '',
+      endereco: budget.endereco ?? '',
+      cidadeId: budget.cidadeId ? String(budget.cidadeId) : '',
+      faseObra: budget.faseObra ?? '',
+      cor: budget.cor ?? '',
+      comissao: budget.comissao != null ? String(budget.comissao) : '',
+      comissaoGerencial: budget.comissaoGerencial != null ? String(budget.comissaoGerencial) : '',
+      desconto: budget.desconto != null ? String(budget.desconto) : '',
+      rt: budget.rt != null ? String(budget.rt) : '',
+      distancia: budget.distancia != null ? String(budget.distancia) : '',
+      visitas: budget.visitas != null ? String(budget.visitas) : '',
+      fretes: budget.fretes != null ? String(budget.fretes) : '',
+      nota: budget.nota != null ? String(budget.nota) : '',
+      margem: budget.margem != null ? String(budget.margem) : '',
+      descontoAdicional: budget.descontoAdicional != null ? String(budget.descontoAdicional) : '',
+      custoExtra: budget.custoExtraPorc != null ? String(budget.custoExtraPorc) : '',
+      descontoVidro: budget.descontoVidroPorc != null ? String(budget.descontoVidroPorc) : '',
+      descontoReforco: budget.descontoReforcoPorc != null ? String(budget.descontoReforcoPorc) : '',
+      semInstalacao: budget.semInstalacao ?? false,
+      freteAutomatico: budget.freteAutomatico ?? false,
+      observacao: budget.observacao ?? '',
+    })
+    const ufId = budget.ufId ? String(budget.ufId) : ''
+    setEditOrcamentoUfId(ufId)
+    try {
+      const resp = await fetch(`${API_BASE_URL}/api/cidades-estados/estados?page=0&size=100`)
+      if (resp.ok) {
+        const data = await resp.json()
+        setEstadoOptions(Array.isArray(data?.content) ? data.content : [])
+      }
+    } catch {
+      setEstadoOptions([])
+    }
+    if (ufId) {
+      await loadCidadesByUf(ufId)
+    }
+    setIsEditOrcamentoModalOpen(true)
+  }, [budget, loadCidadesByUf])
+
+  const closeEditOrcamentoModal = useCallback(() => {
+    setIsEditOrcamentoModalOpen(false)
+    setEditOrcamentoError('')
+  }, [])
+
+  const openAlterarStatusModal = useCallback(async () => {
+    setAlterarStatusError('')
+    setSelectedStatusId('')
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/orcamentos/status`)
+      if (response.ok) {
+        const data = await response.json()
+        setStatusOptions(Array.isArray(data) ? data : [])
+      } else {
+        setStatusOptions([])
+      }
+    } catch {
+      setStatusOptions([])
+    }
+    setIsAlterarStatusModalOpen(true)
+  }, [])
+
+  const closeAlterarStatusModal = useCallback(() => {
+    setIsAlterarStatusModalOpen(false)
+    setAlterarStatusError('')
+  }, [])
+
+  const openAlterarUsuarioModal = useCallback(async () => {
+    setAlterarUsuarioError('')
+    setSelectedUsuarioId('')
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/orcamentos/usuarios`)
+      if (response.ok) {
+        const data = await response.json()
+        setUsuarioOptions(Array.isArray(data) ? data : [])
+      } else {
+        setUsuarioOptions([])
+      }
+    } catch {
+      setUsuarioOptions([])
+    }
+    setIsAlterarUsuarioModalOpen(true)
+  }, [])
+
+  const closeAlterarUsuarioModal = useCallback(() => {
+    setIsAlterarUsuarioModalOpen(false)
+    setAlterarUsuarioError('')
+  }, [])
+
+  const handleAlterarStatusSubmit = useCallback(
+    async (event) => {
+      event.preventDefault()
+      if (!selectedStatusId) {
+        setAlterarStatusError('Selecione um status')
+        return
+      }
+      try {
+        setAlterarStatusSubmitting(true)
+        setAlterarStatusError('')
+        const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ statusOrcamentoId: Number(selectedStatusId) }),
+        })
+        if (!response.ok) {
+          const msg = await response.text()
+          throw new Error(msg || 'Erro ao alterar status')
+        }
+        closeAlterarStatusModal()
+        await loadBudgetDetails()
+      } catch (error) {
+        setAlterarStatusError(error instanceof Error ? error.message : 'Erro ao alterar status')
+      } finally {
+        setAlterarStatusSubmitting(false)
+      }
+    },
+    [id, selectedStatusId, closeAlterarStatusModal, loadBudgetDetails]
+  )
+
+  const handleAlterarUsuarioSubmit = useCallback(
+    async (event) => {
+      event.preventDefault()
+      if (!selectedUsuarioId) {
+        setAlterarUsuarioError('Selecione um usuário')
+        return
+      }
+      try {
+        setAlterarUsuarioSubmitting(true)
+        setAlterarUsuarioError('')
+        const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/usuario`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usuarioId: Number(selectedUsuarioId) }),
+        })
+        if (!response.ok) {
+          const msg = await response.text()
+          throw new Error(msg || 'Erro ao alterar usuário')
+        }
+        closeAlterarUsuarioModal()
+        await loadBudgetDetails()
+      } catch (error) {
+        setAlterarUsuarioError(error instanceof Error ? error.message : 'Erro ao alterar usuário')
+      } finally {
+        setAlterarUsuarioSubmitting(false)
+      }
+    },
+    [id, selectedUsuarioId, closeAlterarUsuarioModal, loadBudgetDetails]
+  )
+
+  const handleEditOrcamentoUfChange = useCallback(
+    async (ufId) => {
+      setEditOrcamentoUfId(ufId)
+      setEditOrcamentoForm((prev) => ({ ...prev, cidadeId: '' }))
+      await loadCidadesByUf(ufId)
+    },
+    [loadCidadesByUf]
+  )
+
+  const handleEditOrcamentoSubmit = useCallback(
+    async (event) => {
+      event.preventDefault()
+      try {
+        setEditOrcamentoSubmitting(true)
+        setEditOrcamentoError('')
+        const parseNum = (val) => (val !== '' && val != null ? Number(val) : null)
+        const payload = {
+          engNome: editOrcamentoForm.engNome,
+          clienteNome: editOrcamentoForm.clienteNome,
+          clienteTel: editOrcamentoForm.clienteTel,
+          clienteEmail: editOrcamentoForm.clienteEmail,
+          endereco: editOrcamentoForm.endereco,
+          cidadeId: parseNum(editOrcamentoForm.cidadeId),
+          faseObra: editOrcamentoForm.faseObra,
+          cor: editOrcamentoForm.cor,
+          comissao: parseNum(editOrcamentoForm.comissao),
+          comissaoGerencial: parseNum(editOrcamentoForm.comissaoGerencial),
+          desconto: parseNum(editOrcamentoForm.desconto),
+          rt: parseNum(editOrcamentoForm.rt),
+          distancia: parseNum(editOrcamentoForm.distancia),
+          visitas: parseNum(editOrcamentoForm.visitas),
+          fretes: parseNum(editOrcamentoForm.fretes),
+          nota: parseNum(editOrcamentoForm.nota),
+          margem: parseNum(editOrcamentoForm.margem),
+          descontoAdicional: parseNum(editOrcamentoForm.descontoAdicional),
+          custoExtra: parseNum(editOrcamentoForm.custoExtra),
+          descontoVidro: parseNum(editOrcamentoForm.descontoVidro),
+          descontoReforco: parseNum(editOrcamentoForm.descontoReforco),
+          semInstalacao: editOrcamentoForm.semInstalacao,
+          freteAutomatico: editOrcamentoForm.freteAutomatico,
+          observacao: editOrcamentoForm.observacao,
+        }
+        const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        if (!response.ok) {
+          const msg = await response.text()
+          throw new Error(msg || 'Erro ao salvar orçamento')
+        }
+        closeEditOrcamentoModal()
+        await loadBudgetDetails()
+      } catch (error) {
+        setEditOrcamentoError(
+          error instanceof Error ? error.message : 'Erro ao salvar orçamento'
+        )
+      } finally {
+        setEditOrcamentoSubmitting(false)
+      }
+    },
+    [id, editOrcamentoForm, closeEditOrcamentoModal, loadBudgetDetails]
+  )
+
+  const handleDuplicarEsquadria = useCallback(
+    async (produtoId) => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/orcamentos/produtos/${produtoId}/duplicar`,
+          { method: 'POST' }
+        )
+        if (!response.ok) {
+          const msg = await response.text()
+          throw new Error(msg || 'Erro ao duplicar esquadria')
+        }
+        await loadBudgetDetails()
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Erro ao duplicar esquadria')
+      }
+    },
+    [loadBudgetDetails]
+  )
+
+  const handleExcluirEsquadria = useCallback(
+    async (produtoId) => {
+      if (!window.confirm('Você deseja excluir a esquadria?')) return
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/orcamentos/produtos/${produtoId}`,
+          { method: 'DELETE' }
+        )
+        if (!response.ok) {
+          const msg = await response.text()
+          throw new Error(msg || 'Erro ao excluir esquadria')
+        }
+        await loadBudgetDetails()
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Erro ao excluir esquadria')
+      }
+    },
+    [loadBudgetDetails]
+  )
+
+  const handleExcluirOrcamento = useCallback(async () => {
+    if (!window.confirm('Você deseja excluir a versão do orçamento?')) return
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}`, { method: 'DELETE' })
+      if (!response.ok) {
+        throw new Error('Erro ao excluir orçamento')
+      }
+      const redirectId = await response.json()
+      if (redirectId) {
+        navigate(`/Orcamentos/${redirectId}`)
+      } else {
+        navigate('/Orcamentos')
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Erro ao excluir orçamento')
+    }
+  }, [id, navigate])
+
+  const handleDuplicarOrcamento = useCallback(async () => {
+    if (!window.confirm('Deseja duplicar este orçamento?')) return
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/duplicar`, { method: 'POST' })
+      if (!response.ok) {
+        throw new Error('Erro ao duplicar orçamento')
+      }
+      const novoId = await response.json()
+      navigate(`/Orcamentos/${novoId}`)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Erro ao duplicar orçamento')
+    }
+  }, [id, navigate])
 
   const handleAddEsquadriaFieldChange = async (field, value) => {
     const nextForm = {
@@ -387,42 +845,61 @@ function OrcamentoDetalhes() {
       return
     }
 
-    const orcamentoId = Number.parseInt(id ?? '', 10)
-    if (!orcamentoId) {
-      setAddEsquadriaError('Orçamento inválido')
-      return
-    }
-
     try {
       setAddEsquadriaSubmitting(true)
-      const response = await fetch(`${API_BASE_URL}/api/orcamentos/adicionar-esquadria`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orcamentoId,
-          produtoId: Number.parseInt(addEsquadriaForm.produtoId, 10),
-          quantidade: Number.parseFloat(addEsquadriaForm.quantidade),
-          largura: Number.parseFloat(addEsquadriaForm.largura),
-          altura: Number.parseFloat(addEsquadriaForm.altura),
-          codigo: addEsquadriaForm.codigo.trim(),
-          ambiente: addEsquadriaForm.ambiente.trim(),
-          vidroId: Number.parseInt(addEsquadriaForm.vidroId, 10),
-          observacao: addEsquadriaForm.observacao.trim(),
-        }),
-      })
+
+      let response
+      if (editingProduto) {
+        response = await fetch(
+          `${API_BASE_URL}/api/orcamentos/produtos/${editingProduto.id}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              produtoId: Number.parseInt(addEsquadriaForm.produtoId, 10),
+              quantidade: Number.parseFloat(addEsquadriaForm.quantidade),
+              largura: Number.parseFloat(addEsquadriaForm.largura),
+              altura: Number.parseFloat(addEsquadriaForm.altura),
+              codigo: addEsquadriaForm.codigo.trim(),
+              ambiente: addEsquadriaForm.ambiente.trim(),
+              vidroId: Number.parseInt(addEsquadriaForm.vidroId, 10),
+              observacao: addEsquadriaForm.observacao.trim(),
+            }),
+          }
+        )
+      } else {
+        const orcamentoId = Number.parseInt(id ?? '', 10)
+        if (!orcamentoId) {
+          setAddEsquadriaError('Orçamento inválido')
+          return
+        }
+        response = await fetch(`${API_BASE_URL}/api/orcamentos/adicionar-esquadria`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orcamentoId,
+            produtoId: Number.parseInt(addEsquadriaForm.produtoId, 10),
+            quantidade: Number.parseFloat(addEsquadriaForm.quantidade),
+            largura: Number.parseFloat(addEsquadriaForm.largura),
+            altura: Number.parseFloat(addEsquadriaForm.altura),
+            codigo: addEsquadriaForm.codigo.trim(),
+            ambiente: addEsquadriaForm.ambiente.trim(),
+            vidroId: Number.parseInt(addEsquadriaForm.vidroId, 10),
+            observacao: addEsquadriaForm.observacao.trim(),
+          }),
+        })
+      }
 
       if (!response.ok) {
         const message = await response.text()
-        throw new Error(message || 'Não foi possível adicionar a esquadria')
+        throw new Error(message || (editingProduto ? 'Não foi possível editar a esquadria' : 'Não foi possível adicionar a esquadria'))
       }
 
       await loadBudgetDetails()
       closeAddEsquadriaModal()
     } catch (error) {
       setAddEsquadriaError(
-        error instanceof Error ? error.message : 'Erro ao adicionar esquadria'
+        error instanceof Error ? error.message : 'Erro ao salvar esquadria'
       )
     } finally {
       setAddEsquadriaSubmitting(false)
@@ -732,7 +1209,24 @@ function OrcamentoDetalhes() {
               <p>Representante: {budget.representante || budget.usuario}</p>
               <p>Criado em: {budget.criadoEm}</p>
               <p>Modificado em: {budget.atualizadoEm}</p>
-              <p>Versão: {budget.versao}</p>
+              <p>
+                Versão: <strong>{budget.versao}</strong>
+                {Array.isArray(budget.versoes) && budget.versoes.length > 1 && (
+                  <span className="budget-versoes-nav">
+                    {' '}|{' '}Versões:{' '}
+                    {budget.versoes.map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        className={`budget-versao-link${String(v.versao) === String(budget.versao) ? ' budget-versao-link--active' : ''}`}
+                        onClick={() => navigate(`/Orcamentos/${v.id}`)}
+                      >
+                        {v.versao}
+                      </button>
+                    ))}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
 
@@ -740,25 +1234,25 @@ function OrcamentoDetalhes() {
             <button className="chip-button" type="button" onClick={openAddEsquadriaModal}>
               Adicionar Esquadria
             </button>
-            <button className="chip-button" type="button">
+            <button className="chip-button" type="button" onClick={() => navigate(`/Orcamentos/${id}/print`)}>
               Orçamento
             </button>
-            <button className="chip-button" type="button">
+            <button className="chip-button" type="button" onClick={() => navigate(`/Orcamentos/${id}/memorial`)}>
               Memorial
             </button>
-            <button className="chip-button" type="button">
+            <button className="chip-button" type="button" onClick={handleDuplicarOrcamento}>
               Duplicar
             </button>
-            <button className="chip-button" type="button">
+            <button className="chip-button" type="button" onClick={openEditOrcamentoModal}>
               Editar Orçamento
             </button>
-            <button className="chip-button" type="button">
+            <button className="chip-button" type="button" onClick={openAlterarUsuarioModal}>
               Alterar Usuário
             </button>
-            <button className="chip-button" type="button">
+            <button className="chip-button" type="button" onClick={openAlterarStatusModal}>
               Alterar Status
             </button>
-            <button className="chip-button chip-danger" type="button">
+            <button className="chip-button chip-danger" type="button" onClick={handleExcluirOrcamento}>
               Excluir
             </button>
           </div>
@@ -826,6 +1320,8 @@ function OrcamentoDetalhes() {
                                 className="icon-button"
                                 type="button"
                                 aria-label="Editar produto"
+                                title="Editar esquadria"
+                                onClick={() => openEditEsquadriaModal(produto)}
                               >
                                 <svg viewBox="0 0 24 24" aria-hidden="true">
                                   <path
@@ -837,7 +1333,23 @@ function OrcamentoDetalhes() {
                               <button
                                 className="icon-button"
                                 type="button"
+                                aria-label="Duplicar produto"
+                                title="Duplicar esquadria"
+                                onClick={() => handleDuplicarEsquadria(produto.id)}
+                              >
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                  <path
+                                    d="M16 1H4C3 1 2 2 2 3v14h2V3h12V1zm3 4H8C7 5 6 6 6 7v14c0 1 1 2 2 2h11c1 0 2-1 2-2V7c0-1-1-2-2-2zm0 16H8V7h11v14z"
+                                    fill="currentColor"
+                                  />
+                                </svg>
+                              </button>
+                              <button
+                                className="icon-button"
+                                type="button"
                                 aria-label="Excluir produto"
+                                title="Excluir esquadria"
+                                onClick={() => handleExcluirEsquadria(produto.id)}
                               >
                                 <svg viewBox="0 0 24 24" aria-hidden="true">
                                   <path
@@ -870,18 +1382,156 @@ function OrcamentoDetalhes() {
                                 {produto.nome || produto.codigoPeca || 'Produto'}
                               </h3>
                               <div className="budget-product-meta">
-                                <span>
+                                <span className="budget-product-meta-row">
                                   <strong>Cor:</strong> {produto.cor || '—'}
                                 </span>
-                                <span>
-                                  <strong>Largura:</strong> {formatNumber(produto.largura)}
+                                <span className="budget-product-meta-row">
+                                  <strong>Largura:</strong>{' '}
+                                  {editingMedidas[produto.id] ? (
+                                    <>
+                                      <input
+                                        className="inline-edit-input"
+                                        type="number"
+                                        value={editingMedidas[produto.id].largura}
+                                        onChange={(e) =>
+                                          setEditingMedidas((cur) => ({
+                                            ...cur,
+                                            [produto.id]: {
+                                              ...cur[produto.id],
+                                              largura: e.target.value,
+                                            },
+                                          }))
+                                        }
+                                        disabled={savingMedidas[produto.id]}
+                                      />
+                                      <strong style={{ marginLeft: 8 }}>Altura:</strong>{' '}
+                                      <input
+                                        className="inline-edit-input"
+                                        type="number"
+                                        value={editingMedidas[produto.id].altura}
+                                        onChange={(e) =>
+                                          setEditingMedidas((cur) => ({
+                                            ...cur,
+                                            [produto.id]: {
+                                              ...cur[produto.id],
+                                              altura: e.target.value,
+                                            },
+                                          }))
+                                        }
+                                        disabled={savingMedidas[produto.id]}
+                                      />
+                                      <button
+                                        className="inline-edit-save"
+                                        type="button"
+                                        onClick={() => saveMedidas(produto.id)}
+                                        disabled={savingMedidas[produto.id]}
+                                        title="Salvar medidas"
+                                      >
+                                        {savingMedidas[produto.id] ? '...' : '✓'}
+                                      </button>
+                                      <button
+                                        className="inline-edit-cancel"
+                                        type="button"
+                                        onClick={() => cancelEditingMedidas(produto.id)}
+                                        disabled={savingMedidas[produto.id]}
+                                        title="Cancelar"
+                                      >
+                                        ✕
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {formatNumber(produto.largura)}{' '}
+                                      <strong style={{ marginLeft: 8 }}>Altura:</strong>{' '}
+                                      {formatNumber(produto.altura)}{' '}
+                                      <button
+                                        className="icon-button inline-edit-icon"
+                                        type="button"
+                                        title="Editar medidas"
+                                        onClick={() =>
+                                          startEditingMedidas(
+                                            produto.id,
+                                            produto.largura,
+                                            produto.altura
+                                          )
+                                        }
+                                      >
+                                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                                          <path
+                                            d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.06-8.06.92.92-8.06 8.06zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                                            fill="currentColor"
+                                          />
+                                        </svg>
+                                      </button>
+                                    </>
+                                  )}
                                 </span>
-                                <span>
-                                  <strong>Altura:</strong> {formatNumber(produto.altura)}
-                                </span>
-                                <span>
+                                <span className="budget-product-meta-row">
                                   <strong>Vidro:</strong>{' '}
-                                  {produto.vidroId ? `#${produto.vidroId}` : '—'}
+                                  {editingVidro[produto.id] !== undefined ? (
+                                    <>
+                                      <select
+                                        className="inline-edit-select"
+                                        value={editingVidro[produto.id]}
+                                        onChange={(e) =>
+                                          setEditingVidro((cur) => ({
+                                            ...cur,
+                                            [produto.id]: e.target.value,
+                                          }))
+                                        }
+                                        disabled={savingVidro[produto.id]}
+                                      >
+                                        <option value="">Selecione</option>
+                                        {glassOptions.map((vidro) => (
+                                          <option key={vidro.id} value={vidro.id}>
+                                            {vidro.name || vidro.nome}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <button
+                                        className="inline-edit-save"
+                                        type="button"
+                                        onClick={() => saveVidro(produto.id)}
+                                        disabled={
+                                          savingVidro[produto.id] || !editingVidro[produto.id]
+                                        }
+                                        title="Salvar vidro"
+                                      >
+                                        {savingVidro[produto.id] ? '...' : '✓'}
+                                      </button>
+                                      <button
+                                        className="inline-edit-cancel"
+                                        type="button"
+                                        onClick={() => cancelEditingVidro(produto.id)}
+                                        disabled={savingVidro[produto.id]}
+                                        title="Cancelar"
+                                      >
+                                        ✕
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {produto.vidroNome || (produto.vidroId ? `#${produto.vidroId}` : '—')}{' '}
+                                      <button
+                                        className="icon-button inline-edit-icon"
+                                        type="button"
+                                        title="Editar vidro"
+                                        onClick={() => {
+                                          if (glassOptions.length === 0) {
+                                            loadAddEsquadriaDependencies()
+                                          }
+                                          startEditingVidro(produto.id, produto.vidroId)
+                                        }}
+                                      >
+                                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                                          <path
+                                            d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.06-8.06.92.92-8.06 8.06zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                                            fill="currentColor"
+                                          />
+                                        </svg>
+                                      </button>
+                                    </>
+                                  )}
                                 </span>
                               </div>
                             </div>
@@ -1064,11 +1714,526 @@ function OrcamentoDetalhes() {
           </div>
         </section>
 
+        {isEditOrcamentoModalOpen && (
+          <div className="modal-overlay" role="dialog" aria-modal="true">
+            <div className="modal-content budget-add-esquadria-modal">
+              <div className="modal-header">
+                <h2>Editar Orçamento</h2>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={closeEditOrcamentoModal}
+                  disabled={editOrcamentoSubmitting}
+                >
+                  X
+                </button>
+              </div>
+
+              <form className="modal-form" onSubmit={handleEditOrcamentoSubmit}>
+                <label className="modal-form-group modal-form-group-full">
+                  Eng / Arq
+                  <input
+                    className="modal-input"
+                    type="text"
+                    value={editOrcamentoForm.engNome ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, engNome: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Cliente
+                  <input
+                    className="modal-input"
+                    type="text"
+                    value={editOrcamentoForm.clienteNome ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, clienteNome: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Telefone
+                  <input
+                    className="modal-input"
+                    type="text"
+                    value={editOrcamentoForm.clienteTel ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, clienteTel: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group modal-form-group-full">
+                  Email
+                  <input
+                    className="modal-input"
+                    type="text"
+                    value={editOrcamentoForm.clienteEmail ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, clienteEmail: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group modal-form-group-full">
+                  Endereço
+                  <input
+                    className="modal-input"
+                    type="text"
+                    value={editOrcamentoForm.endereco ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, endereco: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Estado
+                  <select
+                    className="modal-select"
+                    value={editOrcamentoUfId}
+                    onChange={(e) => handleEditOrcamentoUfChange(e.target.value)}
+                    disabled={editOrcamentoSubmitting}
+                  >
+                    <option value="">Selecione o estado</option>
+                    {estadoOptions.map((uf) => (
+                      <option key={uf.id} value={uf.id}>
+                        {uf.sigla}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="modal-form-group">
+                  Cidade
+                  <select
+                    className="modal-select"
+                    value={editOrcamentoForm.cidadeId ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, cidadeId: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting || cidadesLoading || !editOrcamentoUfId}
+                  >
+                    <option value="">
+                      {cidadesLoading ? 'Carregando...' : 'Selecione a cidade'}
+                    </option>
+                    {cidadeOptions.map((cidade) => (
+                      <option key={cidade.id} value={cidade.id}>
+                        {cidade.cidade}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="modal-form-group">
+                  Fase da Obra
+                  <select
+                    className="modal-select"
+                    value={editOrcamentoForm.faseObra ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, faseObra: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  >
+                    <option value="">Selecione</option>
+                    {['Projeto', 'Fundação', 'Primeira Laje', 'Segunda Laje', 'Telhado', 'Reboco', 'Acabamento', 'Reforma'].map((fase) => (
+                      <option key={fase} value={fase}>{fase}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="modal-form-group">
+                  Cor
+                  <select
+                    className="modal-select"
+                    value={editOrcamentoForm.cor ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, cor: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  >
+                    <option value="">Selecione a cor</option>
+                    {['Aço Cortain', 'Branco', 'Bronze Platin', 'Carvalho Americano', 'Carvalho Claro', 'Chumbo', 'Colors', 'Nogueira', 'Ouro', 'Prata', 'Preto Absoluto', 'Tabaco'].map((cor) => (
+                      <option key={cor} value={cor}>{cor}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="modal-form-group">
+                  Comissão (%)
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    value={editOrcamentoForm.comissao ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, comissao: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Comissão Gerencial (%)
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    value={editOrcamentoForm.comissaoGerencial ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, comissaoGerencial: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Desconto (%)
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    value={editOrcamentoForm.desconto ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, desconto: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  RT (%)
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    value={editOrcamentoForm.rt ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, rt: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Distância (km)
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    value={editOrcamentoForm.distancia ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, distancia: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Visitas
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    value={editOrcamentoForm.visitas ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, visitas: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Fretes
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    value={editOrcamentoForm.fretes ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, fretes: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Nota (%)
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    value={editOrcamentoForm.nota ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, nota: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Margem (%)
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    value={editOrcamentoForm.margem ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, margem: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Desconto Adicional (R$)
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    value={editOrcamentoForm.descontoAdicional ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, descontoAdicional: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Custo Extra Veka (%)
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    value={editOrcamentoForm.custoExtra ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, custoExtra: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Desconto Vidro (%)
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    value={editOrcamentoForm.descontoVidro ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, descontoVidro: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <label className="modal-form-group">
+                  Desconto Reforço (%)
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    value={editOrcamentoForm.descontoReforco ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, descontoReforco: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                  />
+                </label>
+
+                <div className="modal-form-group">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={editOrcamentoForm.semInstalacao ?? false}
+                      onChange={(e) =>
+                        setEditOrcamentoForm((prev) => ({ ...prev, semInstalacao: e.target.checked }))
+                      }
+                      disabled={editOrcamentoSubmitting}
+                    />
+                    Sem Instalação
+                  </label>
+                </div>
+
+                <div className="modal-form-group">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={editOrcamentoForm.freteAutomatico ?? false}
+                      onChange={(e) =>
+                        setEditOrcamentoForm((prev) => ({ ...prev, freteAutomatico: e.target.checked }))
+                      }
+                      disabled={editOrcamentoSubmitting}
+                    />
+                    Frete Automático
+                  </label>
+                </div>
+
+                <label className="modal-form-group modal-form-group-full">
+                  Observações
+                  <textarea
+                    className="modal-input"
+                    rows={3}
+                    value={editOrcamentoForm.observacao ?? ''}
+                    onChange={(e) =>
+                      setEditOrcamentoForm((prev) => ({ ...prev, observacao: e.target.value }))
+                    }
+                    disabled={editOrcamentoSubmitting}
+                    style={{ resize: 'vertical' }}
+                  />
+                </label>
+
+                {editOrcamentoError && (
+                  <div className="modal-form-group-full budget-modal-feedback">
+                    {editOrcamentoError}
+                  </div>
+                )}
+
+                <div className="modal-form-group-full budget-add-modal-actions">
+                  <button
+                    type="button"
+                    className="chip-button"
+                    onClick={closeEditOrcamentoModal}
+                    disabled={editOrcamentoSubmitting}
+                  >
+                    Fechar
+                  </button>
+                  <button type="submit" className="chip-button" disabled={editOrcamentoSubmitting}>
+                    {editOrcamentoSubmitting ? 'Salvando...' : 'Salvar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {isAlterarUsuarioModalOpen && (
+          <div className="modal-overlay" role="dialog" aria-modal="true">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h2>Alterar Usuário</h2>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={closeAlterarUsuarioModal}
+                  disabled={alterarUsuarioSubmitting}
+                >
+                  X
+                </button>
+              </div>
+
+              <form className="modal-form" onSubmit={handleAlterarUsuarioSubmit}>
+                <label className="modal-form-group modal-form-group-full">
+                  Usuário
+                  <select
+                    className="modal-select"
+                    value={selectedUsuarioId}
+                    onChange={(e) => setSelectedUsuarioId(e.target.value)}
+                    disabled={alterarUsuarioSubmitting}
+                  >
+                    <option value="">Selecione o usuário</option>
+                    {usuarioOptions.map((usuario) => (
+                      <option key={usuario.id} value={usuario.id}>
+                        {usuario.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {alterarUsuarioError && (
+                  <div className="modal-form-group-full budget-modal-feedback">
+                    {alterarUsuarioError}
+                  </div>
+                )}
+
+                <div className="modal-form-group-full budget-add-modal-actions">
+                  <button
+                    type="button"
+                    className="chip-button"
+                    onClick={closeAlterarUsuarioModal}
+                    disabled={alterarUsuarioSubmitting}
+                  >
+                    Fechar
+                  </button>
+                  <button type="submit" className="chip-button" disabled={alterarUsuarioSubmitting}>
+                    {alterarUsuarioSubmitting ? 'Salvando...' : 'Alterar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {isAlterarStatusModalOpen && (
+          <div className="modal-overlay" role="dialog" aria-modal="true">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h2>Alterar Status</h2>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={closeAlterarStatusModal}
+                  disabled={alterarStatusSubmitting}
+                >
+                  X
+                </button>
+              </div>
+
+              <form className="modal-form" onSubmit={handleAlterarStatusSubmit}>
+                <label className="modal-form-group modal-form-group-full">
+                  Status
+                  <select
+                    className="modal-select"
+                    value={selectedStatusId}
+                    onChange={(e) => setSelectedStatusId(e.target.value)}
+                    disabled={alterarStatusSubmitting}
+                  >
+                    <option value="">Selecione o status</option>
+                    {statusOptions.map((status) => (
+                      <option key={status.id} value={status.id}>
+                        {status.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {alterarStatusError && (
+                  <div className="modal-form-group-full budget-modal-feedback">
+                    {alterarStatusError}
+                  </div>
+                )}
+
+                <div className="modal-form-group-full budget-add-modal-actions">
+                  <button
+                    type="button"
+                    className="chip-button"
+                    onClick={closeAlterarStatusModal}
+                    disabled={alterarStatusSubmitting}
+                  >
+                    Fechar
+                  </button>
+                  <button type="submit" className="chip-button" disabled={alterarStatusSubmitting}>
+                    {alterarStatusSubmitting ? 'Salvando...' : 'Alterar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {isAddEsquadriaModalOpen && (
           <div className="modal-overlay" role="dialog" aria-modal="true">
             <div className="modal-content budget-add-esquadria-modal">
               <div className="modal-header">
-                <h2>Adicionar Esquadria</h2>
+                <h2>{editingProduto ? 'Editar Esquadria' : 'Adicionar Esquadria'}</h2>
                 <button type="button" className="icon-button" onClick={closeAddEsquadriaModal}>
                   X
                 </button>
@@ -1259,7 +2424,9 @@ function OrcamentoDetalhes() {
                     Fechar
                   </button>
                   <button type="submit" className="chip-button" disabled={addEsquadriaSubmitting}>
-                    {addEsquadriaSubmitting ? 'Adicionando...' : 'Adicionar'}
+                    {addEsquadriaSubmitting
+                      ? editingProduto ? 'Salvando...' : 'Adicionando...'
+                      : editingProduto ? 'Salvar' : 'Adicionar'}
                   </button>
                 </div>
               </form>

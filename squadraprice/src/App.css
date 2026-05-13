@@ -1102,6 +1102,54 @@
   color: #0b5f8f;
 }
 
+.budgets-pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 14px 0 10px;
+  font-size: 13px;
+}
+
+.budgets-pagination-info {
+  color: #334155;
+  flex: 1;
+  min-width: 160px;
+}
+
+.budgets-pagination-button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #d6dee6;
+  background: #ffffff;
+  color: #0b5f8f;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.budgets-pagination-button:hover:not(:disabled) {
+  border-color: #0b5f8f;
+  background: #f0f9ff;
+}
+
+.budgets-pagination-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.budgets-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.budgets-pagination-page {
+  color: #334155;
+  font-size: 13px;
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
 .budgets-card {
   background: #ffffff;
   border-radius: 10px;
@@ -1497,10 +1545,97 @@
 
 .budget-product-meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
+  flex-direction: column;
+  gap: 4px;
   font-size: 12px;
   color: #334155;
+}
+
+.budget-product-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.inline-edit-input {
+  width: 70px;
+  padding: 2px 6px;
+  font-size: 12px;
+  border: 1px solid #93c5fd;
+  border-radius: 4px;
+  outline: none;
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.inline-edit-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.inline-edit-select {
+  padding: 2px 6px;
+  font-size: 12px;
+  border: 1px solid #93c5fd;
+  border-radius: 4px;
+  outline: none;
+  background: #eff6ff;
+  color: #1e40af;
+  max-width: 240px;
+}
+
+.inline-edit-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.inline-edit-save,
+.inline-edit-cancel {
+  padding: 1px 7px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.inline-edit-save {
+  background: #22c55e;
+  color: #fff;
+}
+
+.inline-edit-save:disabled {
+  background: #86efac;
+  cursor: not-allowed;
+}
+
+.inline-edit-cancel {
+  background: #ef4444;
+  color: #fff;
+}
+
+.inline-edit-cancel:disabled {
+  background: #fca5a5;
+  cursor: not-allowed;
+}
+
+.inline-edit-icon {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.inline-edit-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.inline-edit-icon:hover {
+  opacity: 1;
 }
 
 .budget-product-values {
@@ -2015,5 +2150,253 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
+  }
+}
+
+/* ─── OrcamentoDetalhes new elements ─────────────────────────────────────── */
+
+.budget-action-error {
+  color: #c0392b;
+  font-size: 13px;
+  margin: 4px 0;
+}
+
+.budget-versoes {
+  margin-top: 8px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.budget-versoes a {
+  padding: 2px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  text-decoration: none;
+  color: #0b5f8f;
+}
+
+.budget-versao-current {
+  background: #0b5f8f;
+  color: #fff !important;
+}
+
+.budget-versoes-nav {
+  font-size: 12px;
+  color: #555;
+}
+
+.budget-versao-link {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: none;
+  color: #0b5f8f;
+  cursor: pointer;
+  font-size: 12px;
+  margin-left: 3px;
+  text-decoration: underline;
+}
+
+.budget-versao-link:hover {
+  background: #e8f0fe;
+  border-color: #0b5f8f;
+}
+
+.budget-versao-link--active {
+  background: #0b5f8f;
+  color: #fff;
+  font-weight: bold;
+  text-decoration: none;
+  cursor: default;
+}
+
+.budget-bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.budget-select-all {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.budget-product-checkbox {
+  display: flex;
+  align-items: center;
+  margin-right: 8px;
+}
+
+.budget-product-checkbox input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.icon-button-danger {
+  color: #c0392b;
+}
+
+.icon-button-danger:hover {
+  background: #ffeaea;
+}
+
+.inline-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.chip-button.chip-danger {
+  background: #c0392b;
+  color: #fff;
+  border-color: #c0392b;
+}
+
+.chip-button.chip-danger:hover {
+  background: #a93226;
+}
+
+/* Memorial descritivo (paridade com Views/Orcamento/Memorial.cshtml legado) */
+.memorial-page {
+  background: #fff;
+}
+
+.memorial-main {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 2rem;
+}
+
+.memorial-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.memorial-intro {
+  margin-bottom: 1.5rem;
+}
+
+.memorial-header-table {
+  width: 100%;
+  max-width: 780px;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  border-bottom: 4px solid #545454;
+  line-height: 1.4;
+}
+
+.memorial-logo-cell {
+  vertical-align: top;
+  padding: 4px;
+  width: 120px;
+}
+
+.memorial-logo-text {
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+}
+
+.memorial-client-cell {
+  vertical-align: top;
+  padding: 4px;
+}
+
+.memorial-meta-cell {
+  vertical-align: top;
+  padding: 4px;
+  border-left: 1px solid #999;
+}
+
+.memorial-meta-inner {
+  text-align: right;
+}
+
+.memorial-section-title {
+  font-size: 1.125rem;
+  padding-left: 10px;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.memorial-summary-line {
+  font-size: 13px;
+  padding-left: 10px;
+  padding-bottom: 4px;
+}
+
+.memorial-product-block {
+  margin: 1rem 8px;
+}
+
+.memorial-product-table {
+  width: 100%;
+  max-width: 760px;
+  border-collapse: collapse;
+  border: 1px solid #333;
+}
+
+.memorial-product-head {
+  background: #eaeaea;
+  border-bottom: 1px solid #333;
+  text-align: left;
+  padding: 6px 8px;
+  font-size: 14px;
+}
+
+.memorial-thumb-cell {
+  vertical-align: top;
+  padding: 8px;
+  width: 120px;
+}
+
+.memorial-desc-cell {
+  vertical-align: top;
+  padding: 8px;
+  width: 40%;
+}
+
+.memorial-qty-cell {
+  vertical-align: top;
+  padding: 8px;
+}
+
+.memorial-small {
+  font-size: 13px;
+}
+
+@media print {
+  .memorial-no-print,
+  .topbar {
+    display: none !important;
+  }
+
+  .app {
+    display: block !important;
+  }
+
+  .memorial-main {
+    padding: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  .memorial-product-block {
+    page-break-inside: avoid;
   }
 }
