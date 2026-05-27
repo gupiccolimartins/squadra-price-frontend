@@ -5,6 +5,7 @@ import Header from './Header'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
+
 const fallbackBudget = (id) => ({
   id,
   cliente: 'Cliente não informado',
@@ -116,16 +117,20 @@ function OrcamentoDetalhes() {
   const [addEsquadriaSubmitting, setAddEsquadriaSubmitting] = useState(false)
   const [addEsquadriaError, setAddEsquadriaError] = useState('')
   const [colorOptions, setColorOptions] = useState([])
+  const [aluminioColorOptions, setAluminioColorOptions] = useState([])
+  const [aluminioColorSearch, setAluminioColorSearch] = useState('')
   const [lineOptions, setLineOptions] = useState([])
   const [glassOptions, setGlassOptions] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
   const [filteredProductsLoading, setFilteredProductsLoading] = useState(false)
+  const [familiaLineOptions, setFamiliaLineOptions] = useState([])
   const [editingMedidas, setEditingMedidas] = useState({})
   const [savingMedidas, setSavingMedidas] = useState({})
   const [editingVidro, setEditingVidro] = useState({})
   const [savingVidro, setSavingVidro] = useState({})
   const [editingProduto, setEditingProduto] = useState(null)
   const [addEsquadriaForm, setAddEsquadriaForm] = useState({
+    familia: '',
     corId: '',
     linhaId: '',
     produtoId: '',
@@ -174,6 +179,7 @@ function OrcamentoDetalhes() {
 
   const resetAddEsquadriaForm = useCallback(() => {
     setAddEsquadriaForm({
+      familia: '',
       corId: '',
       linhaId: '',
       produtoId: '',
@@ -186,6 +192,7 @@ function OrcamentoDetalhes() {
       observacao: '',
     })
     setFilteredProducts([])
+    setFamiliaLineOptions([])
     setAddEsquadriaError('')
   }, [])
 
@@ -226,16 +233,40 @@ function OrcamentoDetalhes() {
     }
   }, [id])
 
-  const loadProdutosPorCorLinha = useCallback(async (linhaId, corId) => {
-    if (!linhaId || !corId) {
+  const loadLinhasPorFamilia = useCallback(async (familia) => {
+    if (!familia) {
+      setFamiliaLineOptions([])
+      return
+    }
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/orcamentos/linhas-por-familia?familia=${familia}`
+      )
+      if (!response.ok) {
+        throw new Error('Falha ao carregar linhas da família')
+      }
+      const data = await response.json()
+      setFamiliaLineOptions(Array.isArray(data) ? data : [])
+    } catch (error) {
+      setFamiliaLineOptions([])
+      setAddEsquadriaError(
+        error instanceof Error ? error.message : 'Erro ao carregar linhas'
+      )
+    }
+  }, [])
+
+  const loadProdutosPorCorLinha = useCallback(async (linhaId, corId, familia) => {
+    const isAluminio = familia === 'ALUMINIO'
+    if (!linhaId || (!corId && !isAluminio)) {
       setFilteredProducts([])
       return
     }
     try {
       setFilteredProductsLoading(true)
-      const response = await fetch(
-        `${API_BASE_URL}/api/orcamentos/lista-produtos?corId=${corId}&linhaId=${linhaId}`
-      )
+      const url = isAluminio
+        ? `${API_BASE_URL}/api/orcamentos/lista-produtos?linhaId=${linhaId}&familia=ALUMINIO`
+        : `${API_BASE_URL}/api/orcamentos/lista-produtos?corId=${corId}&linhaId=${linhaId}`
+      const response = await fetch(url)
       if (!response.ok) {
         throw new Error('Falha ao carregar produtos da linha/cor')
       }
@@ -256,25 +287,28 @@ function OrcamentoDetalhes() {
     try {
       setAddEsquadriaLoading(true)
       setAddEsquadriaError('')
-      const [colorsResponse, linesResponse, glassesResponse] = await Promise.all([
+      const [colorsResponse, linesResponse, glassesResponse, aluColorsResponse] = await Promise.all([
         fetch(`${API_BASE_URL}/api/products/colors`),
         fetch(`${API_BASE_URL}/api/products/lines`),
         fetch(`${API_BASE_URL}/api/vidros?page=0&size=200`),
+        fetch(`${API_BASE_URL}/api/cor-aluminio`),
       ])
 
-      if (!colorsResponse.ok || !linesResponse.ok || !glassesResponse.ok) {
+      if (!colorsResponse.ok || !linesResponse.ok || !glassesResponse.ok || !aluColorsResponse.ok) {
         throw new Error('Falha ao carregar dados para adicionar esquadria')
       }
 
-      const [colorsData, linesData, glassesData] = await Promise.all([
+      const [colorsData, linesData, glassesData, aluColorsData] = await Promise.all([
         colorsResponse.json(),
         linesResponse.json(),
         glassesResponse.json(),
+        aluColorsResponse.json(),
       ])
 
       setColorOptions(Array.isArray(colorsData) ? colorsData : [])
       setLineOptions(Array.isArray(linesData) ? linesData : [])
       setGlassOptions(Array.isArray(glassesData?.content) ? glassesData.content : [])
+      setAluminioColorOptions(Array.isArray(aluColorsData) ? aluColorsData : [])
     } catch (error) {
       setAddEsquadriaError(
         error instanceof Error ? error.message : 'Erro ao carregar listas de esquadria'
@@ -454,6 +488,7 @@ function OrcamentoDetalhes() {
   const closeAddEsquadriaModal = () => {
     setIsAddEsquadriaModalOpen(false)
     setEditingProduto(null)
+    setAluminioColorSearch('')
     resetAddEsquadriaForm()
   }
 
@@ -463,9 +498,22 @@ function OrcamentoDetalhes() {
       setIsAddEsquadriaModalOpen(true)
       setAddEsquadriaError('')
       await loadAddEsquadriaDependencies()
+      const familia = produto.familiaProduto === 'ALUMINIO' ? 'ALUMINIO' : 'PVC'
+      await loadLinhasPorFamilia(familia)
+
+      let corId = ''
+      if (familia === 'ALUMINIO') {
+        corId = produto.corAluminioId ? String(produto.corAluminioId) : ''
+      } else {
+        corId = produto.corProdutoId ? String(produto.corProdutoId) : ''
+      }
+
+      const linhaId = produto.linhaProdutoId ? String(produto.linhaProdutoId) : ''
+
       setAddEsquadriaForm({
-        corId: '',
-        linhaId: '',
+        familia,
+        corId,
+        linhaId,
         produtoId: String(produto.produtoId ?? ''),
         quantidade: String(produto.quantidade ?? ''),
         largura: String(produto.largura ?? ''),
@@ -475,8 +523,12 @@ function OrcamentoDetalhes() {
         vidroId: String(produto.vidroId ?? ''),
         observacao: produto.observacao ?? '',
       })
+
+      if (linhaId) {
+        await loadProdutosPorCorLinha(linhaId, corId, familia)
+      }
     },
-    [loadAddEsquadriaDependencies]
+    [loadAddEsquadriaDependencies, loadLinhasPorFamilia, loadProdutosPorCorLinha]
   )
 
   const loadCidadesByUf = useCallback(async (ufId) => {
@@ -792,18 +844,36 @@ function OrcamentoDetalhes() {
       ...addEsquadriaForm,
       [field]: value,
     }
-    if (field === 'corId' || field === 'linhaId') {
+
+    if (field === 'familia') {
+      nextForm.corId = ''
+      nextForm.linhaId = ''
+      nextForm.produtoId = ''
+      setFilteredProducts([])
+      setFamiliaLineOptions([])
+      setAddEsquadriaForm(nextForm)
+      if (value) {
+        await loadLinhasPorFamilia(value)
+      }
+      return
+    }
+
+    const isAluminio = nextForm.familia === 'ALUMINIO'
+
+    if (field === 'linhaId' || (field === 'corId' && !isAluminio)) {
       nextForm.produtoId = ''
       setFilteredProducts([])
     }
     setAddEsquadriaForm(nextForm)
 
-    if (
+    if (field === 'linhaId' && nextForm.linhaId && isAluminio) {
+      await loadProdutosPorCorLinha(nextForm.linhaId, nextForm.corId, nextForm.familia)
+    } else if (
       (field === 'corId' || field === 'linhaId') &&
       nextForm.corId &&
       nextForm.linhaId
     ) {
-      await loadProdutosPorCorLinha(nextForm.linhaId, nextForm.corId)
+      await loadProdutosPorCorLinha(nextForm.linhaId, nextForm.corId, nextForm.familia)
     }
   }
 
@@ -849,6 +919,11 @@ function OrcamentoDetalhes() {
       setAddEsquadriaSubmitting(true)
 
       let response
+      const isAluminioSubmit = addEsquadriaForm.familia === 'ALUMINIO'
+      const corAluminioId = isAluminioSubmit && addEsquadriaForm.corId
+        ? Number.parseInt(addEsquadriaForm.corId, 10)
+        : null
+
       if (editingProduto) {
         response = await fetch(
           `${API_BASE_URL}/api/orcamentos/produtos/${editingProduto.id}`,
@@ -864,6 +939,7 @@ function OrcamentoDetalhes() {
               ambiente: addEsquadriaForm.ambiente.trim(),
               vidroId: Number.parseInt(addEsquadriaForm.vidroId, 10),
               observacao: addEsquadriaForm.observacao.trim(),
+              corAluminioId,
             }),
           }
         )
@@ -886,6 +962,7 @@ function OrcamentoDetalhes() {
             ambiente: addEsquadriaForm.ambiente.trim(),
             vidroId: Number.parseInt(addEsquadriaForm.vidroId, 10),
             observacao: addEsquadriaForm.observacao.trim(),
+            corAluminioId,
           }),
         })
       }
@@ -1010,6 +1087,16 @@ function OrcamentoDetalhes() {
         value: resolveBudgetNumber(budget, ['totalPVC', 'TotalPVC', 'valorPVC']),
         percent: resolveBudgetNumber(budget, ['porcPVC', 'PorcPVC']),
       },
+      ...(resolveBudgetNumber(budget, ['totalPintura']) > 0
+        ? [
+            {
+              id: 'pintura-aluminio',
+              label: 'Pintura (Alumínio)',
+              value: resolveBudgetNumber(budget, ['totalPintura']),
+              percent: resolveBudgetNumber(budget, ['porcPintura']),
+            },
+          ]
+        : []),
       {
         id: 'vidro',
         label: 'Vidro',
@@ -1554,6 +1641,12 @@ function OrcamentoDetalhes() {
                               <div>
                                 <span>Valor Total:</span>
                                 <strong>{formatMoney(totalPrice)}</strong>
+                              </div>
+                            )}
+                            {produto.totalPintura > 0 && (
+                              <div>
+                                <span>Pintura (Alumínio):</span>
+                                <strong>{formatMoney(produto.totalPintura)}</strong>
                               </div>
                             )}
                           </div>
@@ -2240,23 +2333,82 @@ function OrcamentoDetalhes() {
               </div>
 
               <form className="modal-form" onSubmit={handleAddEsquadriaSubmit}>
-                <label className="modal-form-group">
-                  Cor
+                <label className="modal-form-group modal-form-group-full">
+                  Família
                   <select
                     className="modal-select"
-                    value={addEsquadriaForm.corId}
+                    value={addEsquadriaForm.familia}
                     onChange={(event) => {
-                      handleAddEsquadriaFieldChange('corId', event.target.value)
+                      handleAddEsquadriaFieldChange('familia', event.target.value)
                     }}
                     disabled={addEsquadriaLoading || addEsquadriaSubmitting}
                   >
                     <option value="">Selecione</option>
-                    {colorOptions.map((cor) => (
-                      <option key={cor.id} value={cor.id}>
-                        {cor.name}
-                      </option>
-                    ))}
+                    <option value="PVC">PVC</option>
+                    <option value="ALUMINIO">Alumínio</option>
                   </select>
+                </label>
+
+                <label className="modal-form-group">
+                  Cor{addEsquadriaForm.familia === 'PVC' ? ' *' : ''}
+                  {addEsquadriaForm.familia === 'ALUMINIO' ? (
+                    <>
+                      <input
+                        type="text"
+                        className="modal-input"
+                        placeholder="Buscar cor..."
+                        value={aluminioColorSearch}
+                        onChange={(e) => setAluminioColorSearch(e.target.value)}
+                        disabled={addEsquadriaLoading || addEsquadriaSubmitting}
+                      />
+                      <select
+                        className="modal-select"
+                        value={addEsquadriaForm.corId}
+                        onChange={(event) => {
+                          handleAddEsquadriaFieldChange('corId', event.target.value)
+                        }}
+                        disabled={
+                          addEsquadriaLoading ||
+                          addEsquadriaSubmitting ||
+                          !addEsquadriaForm.familia
+                        }
+                        size={5}
+                      >
+                        <option value="">Selecione</option>
+                        {aluminioColorOptions
+                          .filter((cor) =>
+                            aluminioColorSearch.trim() === '' ||
+                            cor.descricao.toLowerCase().includes(aluminioColorSearch.toLowerCase()) ||
+                            cor.codigo.toLowerCase().includes(aluminioColorSearch.toLowerCase())
+                          )
+                          .map((cor) => (
+                            <option key={cor.id} value={cor.id}>
+                              {cor.descricao} ({cor.codigo})
+                            </option>
+                          ))}
+                      </select>
+                    </>
+                  ) : (
+                    <select
+                      className="modal-select"
+                      value={addEsquadriaForm.corId}
+                      onChange={(event) => {
+                        handleAddEsquadriaFieldChange('corId', event.target.value)
+                      }}
+                      disabled={
+                        addEsquadriaLoading ||
+                        addEsquadriaSubmitting ||
+                        !addEsquadriaForm.familia
+                      }
+                    >
+                      <option value="">Selecione</option>
+                      {colorOptions.map((cor) => (
+                        <option key={cor.id} value={cor.id}>
+                          {cor.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </label>
 
                 <label className="modal-form-group">
@@ -2267,10 +2419,14 @@ function OrcamentoDetalhes() {
                     onChange={(event) => {
                       handleAddEsquadriaFieldChange('linhaId', event.target.value)
                     }}
-                    disabled={addEsquadriaLoading || addEsquadriaSubmitting}
+                    disabled={
+                      addEsquadriaLoading ||
+                      addEsquadriaSubmitting ||
+                      !addEsquadriaForm.familia
+                    }
                   >
                     <option value="">Selecione</option>
-                    {lineOptions.map((linha) => (
+                    {familiaLineOptions.map((linha) => (
                       <option key={linha.id} value={linha.id}>
                         {linha.name}
                       </option>
@@ -2290,8 +2446,8 @@ function OrcamentoDetalhes() {
                       addEsquadriaLoading ||
                       addEsquadriaSubmitting ||
                       filteredProductsLoading ||
-                      !addEsquadriaForm.corId ||
-                      !addEsquadriaForm.linhaId
+                      !addEsquadriaForm.linhaId ||
+                      (addEsquadriaForm.familia !== 'ALUMINIO' && !addEsquadriaForm.corId)
                     }
                   >
                     <option value="0">Selecione</option>

@@ -20,6 +20,7 @@ function Home() {
         { label: 'Produtos', icon: 'PR', to: '/Produtos' },
         { label: 'Insumos', icon: 'IN', to: '/Insumos' },
         { label: 'Vidros', icon: 'VI', to: '/Vidros' },
+        { label: 'Cores Alumínio', icon: 'CA', to: '/CoresAluminio' },
       ],
     },
     {
