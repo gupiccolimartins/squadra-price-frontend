@@ -10,7 +10,12 @@ function CoresAluminio() {
   const [cores, setCores] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
-  const [searchText, setSearchText] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const [currentPage, setCurrentPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -21,30 +26,47 @@ function CoresAluminio() {
   const [deleteConfirmId, setDeleteConfirmId] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
-  const loadCores = async () => {
+  const fetchCores = async (query = '', page = 0, size = pageSize) => {
     try {
       setIsLoading(true)
       setErrorMessage('')
-      const response = await fetch(`${API_BASE_URL}/api/cor-aluminio`)
+      const params = new URLSearchParams({ page, size })
+      if (query.trim()) params.append('query', query.trim())
+      const response = await fetch(`${API_BASE_URL}/api/cor-aluminio/paged?${params}`)
       if (!response.ok) throw new Error(`Falha ao carregar cores (${response.status})`)
       const data = await response.json()
-      setCores(Array.isArray(data) ? data : [])
+      setCores(Array.isArray(data.content) ? data.content : [])
+      setTotalPages(data.page?.totalPages || 0)
+      setTotalElements(data.page?.totalElements || 0)
+      setCurrentPage(page)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Erro ao carregar cores')
+      setCores([])
+      setTotalPages(0)
+      setTotalElements(0)
     } finally {
       setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    loadCores()
+    fetchCores('', 0, pageSize)
   }, [])
 
-  const filteredCores = cores.filter((c) => {
-    const q = searchText.trim().toLowerCase()
-    if (!q) return true
-    return c.descricao.toLowerCase().includes(q) || c.codigo.toLowerCase().includes(q)
-  })
+  const handleSearch = () => {
+    fetchCores(searchTerm, 0, pageSize)
+  }
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 0 && newPage < totalPages) {
+      fetchCores(searchTerm, newPage, pageSize)
+    }
+  }
+
+  const handlePageSizeChange = (newSize) => {
+    setPageSize(newSize)
+    fetchCores(searchTerm, 0, newSize)
+  }
 
   const openCreateModal = () => {
     setEditingId(null)
@@ -94,7 +116,7 @@ function CoresAluminio() {
         throw new Error(msg || 'Erro ao salvar')
       }
       closeModal()
-      await loadCores()
+      fetchCores(searchTerm, currentPage, pageSize)
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Erro ao salvar')
     } finally {
@@ -111,7 +133,7 @@ function CoresAluminio() {
         throw new Error(msg || 'Erro ao remover')
       }
       setDeleteConfirmId(null)
-      await loadCores()
+      fetchCores(searchTerm, currentPage, pageSize)
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Erro ao remover cor')
     } finally {
@@ -120,10 +142,10 @@ function CoresAluminio() {
   }
 
   return (
-    <div className="app users-page">
+    <div className="app products-page">
       <Header />
-      <main className="users-container">
-        <header className="users-header">
+      <main className="products-container">
+        <header className="products-header">
           <div>
             <h1>
               Cores de Aluminio |{' '}
@@ -136,104 +158,201 @@ function CoresAluminio() {
               </button>
             </h1>
           </div>
-          <input
-            type="text"
-            className="modal-input"
-            style={{ maxWidth: 280, fontWeight: 400, fontSize: 14 }}
-            placeholder="Buscar por codigo ou descricao..."
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-          />
         </header>
 
-        <section className="users-card">
-          {isLoading ? (
-            <p>Carregando cores...</p>
-          ) : errorMessage ? (
-            <p>{errorMessage}</p>
-          ) : (
-            <table className="users-table">
-              <thead>
+        <section className="products-filters">
+          <div className="products-filter-group">
+            <label htmlFor="cores-search">Busca:</label>
+            <input
+              id="cores-search"
+              className="products-filter-input"
+              type="text"
+              placeholder="Codigo ou descricao"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            />
+          </div>
+          <button
+            className="icon-button products-search-button"
+            type="button"
+            aria-label="Buscar"
+            onClick={handleSearch}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M15.5 14h-.79l-.28-.27a6 6 0 1 0-.71.71l.27.28v.79l5 5 1.5-1.5-5-5zm-6 0a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+        </section>
+
+        <section className="products-card">
+          <table className="users-table">
+            <thead>
+              <tr>
+                <th>Codigo</th>
+                <th>Descricao</th>
+                <th>Preco/kg (RS)</th>
+                <th>#</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading && (
                 <tr>
-                  <th>Codigo</th>
-                  <th>Descricao</th>
-                  <th>Preco/kg (RS)</th>
-                  <th>#</th>
+                  <td colSpan={4} style={{ textAlign: 'center', padding: '16px' }}>
+                    Carregando cores...
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredCores.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} style={{ textAlign: 'center', color: '#888', padding: '16px' }}>
-                      Nenhuma cor encontrada
-                    </td>
-                  </tr>
-                ) : (
-                  filteredCores.map((cor) => (
-                    <tr key={cor.id}>
-                      <td>{cor.codigo}</td>
-                      <td>{cor.descricao}</td>
-                      <td>{cor.precoPorKg.toFixed(2)}</td>
-                      <td>
-                        {deleteConfirmId === cor.id ? (
-                          <span className="inline-confirm">
-                            Remover?{' '}
-                            <button
-                              type="button"
-                              className="icon-button icon-button-danger"
-                              onClick={() => handleDelete(cor.id)}
-                              disabled={deleting}
-                              aria-label="Confirmar remocao"
-                            >
-                              Sim
-                            </button>
-                            <button
-                              type="button"
-                              className="icon-button"
-                              onClick={() => setDeleteConfirmId(null)}
-                              disabled={deleting}
-                              aria-label="Cancelar remocao"
-                            >
-                              Nao
-                            </button>
-                          </span>
-                        ) : (
-                          <>
-                            <button
-                              className="icon-button edit-button"
-                              type="button"
-                              aria-label="Editar"
-                              onClick={() => openEditModal(cor)}
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path
-                                  d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.47-8.47.92.92-8.47 8.47zM20.71 7.04a1 1 0 0 0 0-1.41L18.37 3.3a1 1 0 0 0-1.41 0l-1.75 1.75 3.75 3.75 1.75-1.75z"
-                                  fill="currentColor"
-                                />
-                              </svg>
-                            </button>
-                            <button
-                              className="icon-button icon-button-danger"
-                              type="button"
-                              aria-label="Remover"
-                              onClick={() => setDeleteConfirmId(cor.id)}
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path
-                                  d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"
-                                  fill="currentColor"
-                                />
-                              </svg>
-                            </button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          )}
+              )}
+              {!isLoading && errorMessage && (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: '#888', padding: '16px' }}>
+                    {errorMessage}
+                  </td>
+                </tr>
+              )}
+              {!isLoading && !errorMessage && cores.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: '#888', padding: '16px' }}>
+                    Nenhuma cor encontrada
+                  </td>
+                </tr>
+              )}
+              {!isLoading && !errorMessage && cores.map((cor) => (
+                <tr key={cor.id}>
+                  <td>{cor.codigo}</td>
+                  <td>{cor.descricao}</td>
+                  <td>{cor.precoPorKg.toFixed(2)}</td>
+                  <td>
+                    {deleteConfirmId === cor.id ? (
+                      <span className="inline-confirm">
+                        Remover?{' '}
+                        <button
+                          type="button"
+                          className="icon-button icon-button-danger"
+                          onClick={() => handleDelete(cor.id)}
+                          disabled={deleting}
+                          aria-label="Confirmar remocao"
+                        >
+                          Sim
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => setDeleteConfirmId(null)}
+                          disabled={deleting}
+                          aria-label="Cancelar remocao"
+                        >
+                          Nao
+                        </button>
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          className="icon-button edit-button"
+                          type="button"
+                          aria-label="Editar"
+                          onClick={() => openEditModal(cor)}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path
+                              d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.47-8.47.92.92-8.47 8.47zM20.71 7.04a1 1 0 0 0 0-1.41L18.37 3.3a1 1 0 0 0-1.41 0l-1.75 1.75 3.75 3.75 1.75-1.75z"
+                              fill="currentColor"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          className="icon-button icon-button-danger"
+                          type="button"
+                          aria-label="Remover"
+                          onClick={() => setDeleteConfirmId(cor.id)}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path
+                              d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"
+                              fill="currentColor"
+                            />
+                          </svg>
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="pagination-container">
+            <div className="pagination-info">
+              <span>Itens por pagina:</span>
+              <select
+                className="pagination-select"
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+              <span className="pagination-total">
+                {totalElements > 0
+                  ? `${currentPage * pageSize + 1}-${Math.min((currentPage + 1) * pageSize, totalElements)} de ${totalElements}`
+                  : '0 registros'}
+              </span>
+            </div>
+            <div className="pagination-controls">
+              <button
+                className="pagination-button"
+                type="button"
+                onClick={() => handlePageChange(0)}
+                disabled={currentPage === 0}
+                aria-label="Primeira pagina"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path d="M18.41 16.59L13.82 12l4.59-4.59L17 6l-6 6 6 6 1.41-1.41zM6 6h2v12H6V6z" fill="currentColor" />
+                </svg>
+              </button>
+              <button
+                className="pagination-button"
+                type="button"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 0}
+                aria-label="Pagina anterior"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12l4.58-4.59z" fill="currentColor" />
+                </svg>
+              </button>
+              <span className="pagination-page">
+                Pagina {totalPages > 0 ? currentPage + 1 : 0} de {totalPages}
+              </span>
+              <button
+                className="pagination-button"
+                type="button"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages - 1}
+                aria-label="Proxima pagina"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor" />
+                </svg>
+              </button>
+              <button
+                className="pagination-button"
+                type="button"
+                onClick={() => handlePageChange(totalPages - 1)}
+                disabled={currentPage >= totalPages - 1}
+                aria-label="Ultima pagina"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path d="M5.59 7.41L10.18 12l-4.59 4.59L7 18l6-6-6-6-1.41 1.41zM16 6h2v12h-2V6z" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </section>
 
         {isModalOpen && (
