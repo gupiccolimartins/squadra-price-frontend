@@ -129,6 +129,46 @@ function OrcamentoDetalhes() {
   const [editingVidro, setEditingVidro] = useState({})
   const [savingVidro, setSavingVidro] = useState({})
   const [editingProduto, setEditingProduto] = useState(null)
+
+  // 2.3 — Observação inline
+  const [editingObservacao, setEditingObservacao] = useState({})
+  const [savingObservacao, setSavingObservacao] = useState({})
+
+  // 2.4 — Bulk delete
+  const [selecionados, setSelecionados] = useState(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  // 2.1 — Acessórios
+  const [isAddAcessorioModalOpen, setIsAddAcessorioModalOpen] = useState(false)
+  const [editingAcessorioId, setEditingAcessorioId] = useState(null)
+  const [addAcessorioTargetId, setAddAcessorioTargetId] = useState(null)
+  const [addAcessorioForm, setAddAcessorioForm] = useState({ categoriaId: '', produtoId: '', quantidade: '1', observacao: '' })
+  const [acessorioCategorias, setAcessorioCategorias] = useState([])
+  const [acessorioProdutos, setAcessorioProdutos] = useState([])
+  const [acessorioSubmitting, setAcessorioSubmitting] = useState(false)
+  const [acessorioError, setAcessorioError] = useState('')
+
+  // 2.2 — Alterar Linha
+  const [isAlterarLinhaModalOpen, setIsAlterarLinhaModalOpen] = useState(false)
+  const [alterarLinhaItens, setAlterarLinhaItens] = useState([])
+  const [alterarLinhaSelecoes, setAlterarLinhaSelecoes] = useState({})
+  const [alterarLinhaLoading, setAlterarLinhaLoading] = useState(false)
+  const [alterarLinhaSubmitting, setAlterarLinhaSubmitting] = useState(false)
+  const [alterarLinhaError, setAlterarLinhaError] = useState('')
+
+  // 2.5 — Recálculo ao vivo
+
+  // 2.6 — Filhos de produto
+  const [produtoFilhos, setProdutoFilhos] = useState([])
+  const [filhosLoading, setFilhosLoading] = useState(false)
+
+  // 2.9 — Calcular KM
+  const [calculandoKm, setCalculandoKm] = useState(false)
+  const [distanciaEditavel, setDistanciaEditavel] = useState(false)
+
+  // Simular Valor
+  const [simularValorLoading, setSimularValorLoading] = useState(false)
+  const [simularValorResult, setSimularValorResult] = useState(null)
   const [addEsquadriaForm, setAddEsquadriaForm] = useState({
     familia: '',
     corId: '',
@@ -417,6 +457,328 @@ function OrcamentoDetalhes() {
     [editingVidro, cancelEditingVidro, loadBudgetDetails]
   )
 
+  // 2.3 — Observação inline
+  const startEditingObservacao = useCallback((produtoId, observacao) => {
+    setEditingObservacao((cur) => ({ ...cur, [produtoId]: observacao || '' }))
+  }, [])
+
+  const cancelEditingObservacao = useCallback((produtoId) => {
+    setEditingObservacao((cur) => {
+      const next = { ...cur }
+      delete next[produtoId]
+      return next
+    })
+  }, [])
+
+  const saveObservacao = useCallback(
+    async (produtoId) => {
+      const obs = editingObservacao[produtoId]
+      if (obs === undefined) return
+      try {
+        setSavingObservacao((cur) => ({ ...cur, [produtoId]: true }))
+        const response = await fetch(
+          `${API_BASE_URL}/api/orcamentos/produtos/${produtoId}/observacao`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ observacao: obs }),
+          }
+        )
+        if (!response.ok) {
+          const msg = await response.text()
+          throw new Error(msg || 'Erro ao atualizar observação')
+        }
+        cancelEditingObservacao(produtoId)
+        await loadBudgetDetails()
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Erro ao atualizar observação')
+      } finally {
+        setSavingObservacao((cur) => {
+          const next = { ...cur }
+          delete next[produtoId]
+          return next
+        })
+      }
+    },
+    [editingObservacao, cancelEditingObservacao, loadBudgetDetails]
+  )
+
+  // 2.4 — Bulk delete
+  const toggleSelecionado = useCallback((produtoId) => {
+    setSelecionados((cur) => {
+      const next = new Set(cur)
+      if (next.has(produtoId)) {
+        next.delete(produtoId)
+      } else {
+        next.add(produtoId)
+      }
+      return next
+    })
+  }, [])
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selecionados.size === 0) return
+    if (!window.confirm(`Excluir ${selecionados.size} produto(s) selecionado(s)?`)) return
+    try {
+      setBulkDeleting(true)
+      const response = await fetch(`${API_BASE_URL}/api/orcamentos/produtos/bulk`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selecionados) }),
+      })
+      if (!response.ok) {
+        throw new Error('Erro ao excluir produtos selecionados')
+      }
+      setSelecionados(new Set())
+      await loadBudgetDetails()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Erro ao excluir produtos')
+    } finally {
+      setBulkDeleting(false)
+    }
+  }, [selecionados, loadBudgetDetails])
+
+  // 2.1 — Acessórios
+  const loadAcessorioCategorias = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/products/accessory-categories`)
+      if (!response.ok) return
+      const data = await response.json()
+      setAcessorioCategorias(Array.isArray(data) ? data : [])
+    } catch {
+      setAcessorioCategorias([])
+    }
+  }, [])
+
+  const loadAcessorioProdutos = useCallback(async (categoriaId) => {
+    if (!categoriaId) {
+      setAcessorioProdutos([])
+      return
+    }
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/orcamentos/lista-acessorios?categoriaAcessorioId=${categoriaId}`
+      )
+      if (!response.ok) return
+      const data = await response.json()
+      setAcessorioProdutos(Array.isArray(data) ? data : [])
+    } catch {
+      setAcessorioProdutos([])
+    }
+  }, [])
+
+  const openAddAcessorioModal = useCallback(async (orcamentoProdutoId) => {
+    setAddAcessorioTargetId(orcamentoProdutoId)
+    setEditingAcessorioId(null)
+    setAddAcessorioForm({ categoriaId: '', produtoId: '', quantidade: '1', observacao: '' })
+    setAcessorioProdutos([])
+    setAcessorioError('')
+    setIsAddAcessorioModalOpen(true)
+    await loadAcessorioCategorias()
+  }, [loadAcessorioCategorias])
+
+  const openEditAcessorioModal = useCallback((acessorioId, quantidade, observacao) => {
+    setEditingAcessorioId(acessorioId)
+    setAddAcessorioForm({
+      categoriaId: '',
+      produtoId: '',
+      quantidade: String(quantidade ?? '1'),
+      observacao: observacao || '',
+    })
+    setAcessorioError('')
+    setIsAddAcessorioModalOpen(true)
+  }, [])
+
+  const closeAddAcessorioModal = useCallback(() => {
+    setIsAddAcessorioModalOpen(false)
+    setEditingAcessorioId(null)
+    setAddAcessorioTargetId(null)
+  }, [])
+
+  const handleAcessorioSubmit = useCallback(async (e) => {
+    e.preventDefault()
+    try {
+      setAcessorioSubmitting(true)
+      setAcessorioError('')
+      let response
+      if (editingAcessorioId) {
+        response = await fetch(`${API_BASE_URL}/api/orcamentos/acessorios/${editingAcessorioId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            quantidade: Number.parseFloat(addAcessorioForm.quantidade),
+            observacao: addAcessorioForm.observacao.trim(),
+          }),
+        })
+      } else {
+        response = await fetch(
+          `${API_BASE_URL}/api/orcamentos/produtos/${addAcessorioTargetId}/acessorios`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              produtoId: Number.parseInt(addAcessorioForm.produtoId, 10),
+              quantidade: Number.parseFloat(addAcessorioForm.quantidade),
+              observacao: addAcessorioForm.observacao.trim(),
+            }),
+          }
+        )
+      }
+      if (!response.ok) {
+        const msg = await response.text()
+        throw new Error(msg || 'Erro ao salvar acessório')
+      }
+      closeAddAcessorioModal()
+      await loadBudgetDetails()
+    } catch (error) {
+      setAcessorioError(error instanceof Error ? error.message : 'Erro ao salvar acessório')
+    } finally {
+      setAcessorioSubmitting(false)
+    }
+  }, [editingAcessorioId, addAcessorioTargetId, addAcessorioForm, closeAddAcessorioModal, loadBudgetDetails])
+
+  const handleDeleteAcessorio = useCallback(async (acessorioId) => {
+    if (!window.confirm('Excluir este acessório?')) return
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/orcamentos/acessorios/${acessorioId}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) throw new Error('Erro ao excluir acessório')
+      await loadBudgetDetails()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Erro ao excluir acessório')
+    }
+  }, [loadBudgetDetails])
+
+  // 2.2 — Alterar Linha
+  const openAlterarLinhaModal = useCallback(async () => {
+    setAlterarLinhaItens([])
+    setAlterarLinhaSelecoes({})
+    setAlterarLinhaError('')
+    setAlterarLinhaLoading(true)
+    setIsAlterarLinhaModalOpen(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/alterar-linha-itens`)
+      const data = response.ok ? await response.json() : []
+      setAlterarLinhaItens(data)
+      const selecoes = {}
+      for (const item of data) {
+        selecoes[item.orcamentoProdutoId] = item.alternativas[0]?.id ?? ''
+      }
+      setAlterarLinhaSelecoes(selecoes)
+    } catch {
+      setAlterarLinhaItens([])
+    } finally {
+      setAlterarLinhaLoading(false)
+    }
+  }, [id])
+
+  const closeAlterarLinhaModal = useCallback(() => {
+    setIsAlterarLinhaModalOpen(false)
+  }, [])
+
+  const handleAlterarLinhaSubmit = useCallback(async (e) => {
+    e.preventDefault()
+    const itens = Object.entries(alterarLinhaSelecoes)
+      .filter(([, novoProdutoId]) => novoProdutoId !== '')
+      .map(([orcamentoProdutoId, novoProdutoId]) => ({
+        orcamentoProdutoId: Number.parseInt(orcamentoProdutoId, 10),
+        novoProdutoId: Number.parseInt(novoProdutoId, 10),
+      }))
+    if (itens.length === 0) {
+      setAlterarLinhaError('Nenhuma alteração selecionada')
+      return
+    }
+    try {
+      setAlterarLinhaSubmitting(true)
+      setAlterarLinhaError('')
+      const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/alterar-linha-itens`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itens }),
+      })
+      if (!response.ok) throw new Error('Erro ao alterar linha')
+      await loadBudgetDetails()
+      setIsAlterarLinhaModalOpen(false)
+    } catch (error) {
+      setAlterarLinhaError(error instanceof Error ? error.message : 'Erro ao alterar linha')
+    } finally {
+      setAlterarLinhaSubmitting(false)
+    }
+  }, [id, alterarLinhaSelecoes, loadBudgetDetails])
+
+  // 2.6 — Filhos de produto
+  const loadFilhosDoProduto = useCallback(async (produtoId) => {
+    if (!produtoId) {
+      setProdutoFilhos([])
+      return
+    }
+    try {
+      setFilhosLoading(true)
+      const response = await fetch(`${API_BASE_URL}/api/products/${produtoId}/filhos`)
+      if (!response.ok) {
+        setProdutoFilhos([])
+        return
+      }
+      const data = await response.json()
+      setProdutoFilhos(Array.isArray(data) ? data : [])
+    } catch {
+      setProdutoFilhos([])
+    } finally {
+      setFilhosLoading(false)
+    }
+  }, [])
+
+  // 2.9 — Calcular KM
+  // overrideCidadeId / overrideUfId usados quando chamado diretamente do onChange
+  // (estado React ainda não atualizou no momento do evento)
+  const handleCalcularKm = useCallback(async (overrideCidadeId, overrideUfId) => {
+    const targetCidadeId = overrideCidadeId ?? editOrcamentoForm.cidadeId
+    const targetUfId    = overrideUfId    ?? editOrcamentoUfId
+    const cidadeObj = cidadeOptions.find((c) => String(c.id) === String(targetCidadeId))
+    const estadoObj = estadoOptions.find((uf) => String(uf.id) === String(targetUfId))
+    const cidadeNome = cidadeObj?.cidade || ''
+    const ufSigla    = estadoObj?.sigla   || ''
+    const destino = cidadeNome ? (ufSigla ? `${cidadeNome} - ${ufSigla}` : cidadeNome) : ''
+    if (!destino) return
+    try {
+      setCalculandoKm(true)
+      const response = await fetch(
+        `${API_BASE_URL}/api/orcamentos/calcular-km?origem=Vinhedo - SP&destino=${encodeURIComponent(destino)}`
+      )
+      if (!response.ok) throw new Error('Erro ao calcular distância')
+      const data = await response.json()
+      if (data.distanciaKm != null) {
+        setEditOrcamentoForm((prev) => ({ ...prev, distancia: String(data.distanciaKm) }))
+      }
+    } catch (error) {
+      console.warn('calcularKm:', error instanceof Error ? error.message : error)
+    } finally {
+      setCalculandoKm(false)
+    }
+  }, [editOrcamentoForm.cidadeId, editOrcamentoUfId, cidadeOptions, estadoOptions])
+
+  const handleSimularValor = useCallback(async () => {
+    try {
+      setSimularValorLoading(true)
+      setSimularValorResult(null)
+      const fields = ['comissao', 'comissaoGerencial', 'desconto', 'rt', 'distancia', 'visitas', 'fretes', 'nota', 'margem', 'descontoAdicional', 'custoExtra', 'descontoVidro', 'descontoReforco']
+      const params = new URLSearchParams()
+      fields.forEach((f) => {
+        const val = editOrcamentoForm[f]
+        if (val !== undefined && val !== null && val !== '') params.set(f, val)
+      })
+      const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/calcular-totais?${params.toString()}`)
+      if (!response.ok) throw new Error('Erro ao simular valor')
+      const data = await response.json()
+      setSimularValorResult(data)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Não foi possível simular o valor')
+    } finally {
+      setSimularValorLoading(false)
+    }
+  }, [editOrcamentoForm, id])
+
   useEffect(() => {
     setBudget(initialBudget)
   }, [initialBudget])
@@ -552,6 +914,8 @@ function OrcamentoDetalhes() {
 
   const openEditOrcamentoModal = useCallback(async () => {
     setEditOrcamentoError('')
+    setSimularValorResult(null)
+    setDistanciaEditavel(false)
     setEditOrcamentoForm({
       engNome: budget.engNome ?? '',
       clienteNome: budget.cliente ?? '',
@@ -875,6 +1239,13 @@ function OrcamentoDetalhes() {
     ) {
       await loadProdutosPorCorLinha(nextForm.linhaId, nextForm.corId, nextForm.familia)
     }
+
+    // 2.6 — load filhos when product is selected
+    if (field === 'produtoId' && value && value !== '0') {
+      await loadFilhosDoProduto(value)
+    } else if (field === 'produtoId') {
+      setProdutoFilhos([])
+    }
   }
 
   const validateAddEsquadriaForm = () => {
@@ -924,6 +1295,10 @@ function OrcamentoDetalhes() {
         ? Number.parseInt(addEsquadriaForm.corId, 10)
         : null
 
+      const effectiveProdutoId = addEsquadriaForm.produtoFilhoId
+        ? Number.parseInt(addEsquadriaForm.produtoFilhoId, 10)
+        : Number.parseInt(addEsquadriaForm.produtoId, 10)
+
       if (editingProduto) {
         response = await fetch(
           `${API_BASE_URL}/api/orcamentos/produtos/${editingProduto.id}`,
@@ -931,7 +1306,7 @@ function OrcamentoDetalhes() {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              produtoId: Number.parseInt(addEsquadriaForm.produtoId, 10),
+              produtoId: effectiveProdutoId,
               quantidade: Number.parseFloat(addEsquadriaForm.quantidade),
               largura: Number.parseFloat(addEsquadriaForm.largura),
               altura: Number.parseFloat(addEsquadriaForm.altura),
@@ -954,7 +1329,7 @@ function OrcamentoDetalhes() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             orcamentoId,
-            produtoId: Number.parseInt(addEsquadriaForm.produtoId, 10),
+            produtoId: effectiveProdutoId,
             quantidade: Number.parseFloat(addEsquadriaForm.quantidade),
             largura: Number.parseFloat(addEsquadriaForm.largura),
             altura: Number.parseFloat(addEsquadriaForm.altura),
@@ -1368,7 +1743,10 @@ function OrcamentoDetalhes() {
                 <div className="budget-summary">
                   <p>
                     Área: <strong>{formatNumber(budgetArea)} m²</strong> | Cor da obra:{' '}
-                    <strong>Branco</strong> | Alterar Linha
+                    <strong>{budget?.cor || 'Branco'}</strong> |{' '}
+                    <button className="link-button" type="button" onClick={openAlterarLinhaModal}>
+                      Alterar Linha
+                    </button>
                   </p>
                 </div>
 
@@ -1376,6 +1754,16 @@ function OrcamentoDetalhes() {
                   <div className="budget-products-header">
                     <h2>Produtos do orçamento</h2>
                     <span className="muted">{budgetProducts.length} produtos vinculados</span>
+                    {selecionados.size > 0 && (
+                      <button
+                        className="chip-button chip-danger"
+                        type="button"
+                        onClick={handleBulkDelete}
+                        disabled={bulkDeleting}
+                      >
+                        {bulkDeleting ? 'Excluindo...' : `Excluir selecionados (${selecionados.size})`}
+                      </button>
+                    )}
                   </div>
 
                   {budgetProducts.length === 0 && (
@@ -1395,11 +1783,22 @@ function OrcamentoDetalhes() {
                       return (
                         <article className="budget-product-card" key={productKey}>
                           <div className="budget-product-top">
-                            <span className="budget-product-code">
-                              {produto.codigoPeca || '—'} - {produto.ambiente || '—'}
-                            </span>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <input
+                                type="checkbox"
+                                checked={selecionados.has(produto.id)}
+                                onChange={() => toggleSelecionado(produto.id)}
+                              />
+                              <span className="budget-product-code">
+                                {produto.codigoPeca || '—'} - {produto.ambiente || '—'}
+                              </span>
+                            </label>
                             <div className="budget-product-top-actions">
-                              <button className="link-button" type="button">
+                              <button
+                                className="link-button"
+                                type="button"
+                                onClick={() => openAddAcessorioModal(produto.id)}
+                              >
                                 +Acessórios
                               </button>
                               <span className="budget-product-divider">|</span>
@@ -1652,7 +2051,58 @@ function OrcamentoDetalhes() {
                           </div>
 
                           <div className="budget-product-obs budget-product-obs-main">
-                            <strong>Obs:</strong> {produto.observacao || '—'}
+                            <strong>Obs:</strong>{' '}
+                            {editingObservacao[produto.id] !== undefined ? (
+                              <>
+                                <textarea
+                                  className="inline-edit-input"
+                                  style={{ width: '100%', minHeight: 60, resize: 'vertical' }}
+                                  value={editingObservacao[produto.id]}
+                                  onChange={(e) =>
+                                    setEditingObservacao((cur) => ({
+                                      ...cur,
+                                      [produto.id]: e.target.value,
+                                    }))
+                                  }
+                                  disabled={savingObservacao[produto.id]}
+                                />
+                                <button
+                                  className="inline-edit-save"
+                                  type="button"
+                                  onClick={() => saveObservacao(produto.id)}
+                                  disabled={savingObservacao[produto.id]}
+                                  title="Salvar observação"
+                                >
+                                  {savingObservacao[produto.id] ? '...' : '✓'}
+                                </button>
+                                <button
+                                  className="inline-edit-cancel"
+                                  type="button"
+                                  onClick={() => cancelEditingObservacao(produto.id)}
+                                  disabled={savingObservacao[produto.id]}
+                                  title="Cancelar"
+                                >
+                                  ✕
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                {produto.observacao || '—'}
+                                <button
+                                  className="icon-button inline-edit-icon"
+                                  type="button"
+                                  title="Editar observação"
+                                  onClick={() => startEditingObservacao(produto.id, produto.observacao)}
+                                >
+                                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path
+                                      d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.06-8.06.92.92-8.06 8.06zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                                      fill="currentColor"
+                                    />
+                                  </svg>
+                                </button>
+                              </>
+                            )}
                           </div>
 
                           <div className="budget-product-accessories">
@@ -1677,13 +2127,18 @@ function OrcamentoDetalhes() {
                                       <div className="budget-accessory-main">
                                         <div className="budget-accessory-title-row">
                                           <strong className="budget-accessory-title">
-                                            Acessório {acessorio.acessorioId || acessorio.id || ''}
+                                            {acessorio.nome || `Acessório ${acessorio.acessorioId || acessorio.id || ''}`}
                                           </strong>
                                           <div className="budget-accessory-actions">
                                             <button
                                               className="icon-button"
                                               type="button"
                                               aria-label="Editar acessório"
+                                              onClick={() => openEditAcessorioModal(
+                                                acessorio.id,
+                                                acessorio.quantidade,
+                                                acessorio.observacao
+                                              )}
                                             >
                                               <svg viewBox="0 0 24 24" aria-hidden="true">
                                                 <path
@@ -1696,6 +2151,7 @@ function OrcamentoDetalhes() {
                                               className="icon-button"
                                               type="button"
                                               aria-label="Excluir acessório"
+                                              onClick={() => handleDeleteAcessorio(acessorio.id)}
                                             >
                                               <svg viewBox="0 0 24 24" aria-hidden="true">
                                                 <path
@@ -1753,10 +2209,15 @@ function OrcamentoDetalhes() {
                 </div>
               </>
             ) : (
-              <div className="budget-pricing">
+                <div className="budget-pricing">
                 <div className="budget-pricing-header">
                   <h2>Detalhes da precificação</h2>
-                  <button className="icon-button" type="button" aria-label="Imprimir precificação">
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label="Imprimir precificação"
+                    onClick={() => window.open(`/Orcamentos/${id}/precificacao`, '_blank')}
+                  >
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path
                         d="M6 7V3h12v4h2v10h-4v4H8v-4H4V7h2zm2-2v2h8V5H8zm8 12H8v2h8v-2zm2-2V9H6v6h12z"
@@ -1812,15 +2273,34 @@ function OrcamentoDetalhes() {
             <div className="modal-content budget-add-esquadria-modal">
               <div className="modal-header">
                 <h2>Editar Orçamento</h2>
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={closeEditOrcamentoModal}
-                  disabled={editOrcamentoSubmitting}
-                >
-                  X
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="chip-button"
+                    onClick={() => { setSimularValorResult(null); handleSimularValor() }}
+                    disabled={simularValorLoading || editOrcamentoSubmitting}
+                  >
+                    {simularValorLoading ? 'Simulando...' : 'Simular Valor'}
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={closeEditOrcamentoModal}
+                    disabled={editOrcamentoSubmitting}
+                  >
+                    X
+                  </button>
+                </div>
               </div>
+              {simularValorResult && (
+                <div style={{ margin: '0 0 12px', padding: '8px 12px', background: '#f0f9ff', border: '1px solid #0284c7', borderRadius: 6, fontSize: 13 }}>
+                  <strong>Simulação:</strong>{' '}
+                  Total: <strong>{formatMoney(simularValorResult.total)}</strong>
+                  {' | '}m²: <strong>{formatMoney(simularValorResult.totalM2)}</strong>
+                  {' | '}Material: <strong>{formatMoney(simularValorResult.totalMaterial)}</strong>
+                  {' | '}Mat+Serv: <strong>{formatMoney(simularValorResult.totalMatServ)}</strong>
+                </div>
+              )}
 
               <form className="modal-form" onSubmit={handleEditOrcamentoSubmit}>
                 <label className="modal-form-group modal-form-group-full">
@@ -1910,9 +2390,11 @@ function OrcamentoDetalhes() {
                   <select
                     className="modal-select"
                     value={editOrcamentoForm.cidadeId ?? ''}
-                    onChange={(e) =>
-                      setEditOrcamentoForm((prev) => ({ ...prev, cidadeId: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      const newCidadeId = e.target.value
+                      setEditOrcamentoForm((prev) => ({ ...prev, cidadeId: newCidadeId }))
+                      if (newCidadeId) handleCalcularKm(newCidadeId, editOrcamentoUfId)
+                    }}
                     disabled={editOrcamentoSubmitting || cidadesLoading || !editOrcamentoUfId}
                   >
                     <option value="">
@@ -2017,7 +2499,21 @@ function OrcamentoDetalhes() {
                 </label>
 
                 <label className="modal-form-group">
-                  Distância (km)
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    Distância (km)
+                    {calculandoKm && (
+                      <span style={{ fontSize: 11, color: '#888' }}>calculando...</span>
+                    )}
+                    {!calculandoKm && (
+                      <span
+                        title="Editar distância manualmente"
+                        style={{ cursor: 'pointer', fontSize: 13, color: '#555' }}
+                        onClick={() => setDistanciaEditavel(true)}
+                      >
+                        ✏️
+                      </span>
+                    )}
+                  </span>
                   <input
                     className="modal-input"
                     type="number"
@@ -2026,7 +2522,9 @@ function OrcamentoDetalhes() {
                     onChange={(e) =>
                       setEditOrcamentoForm((prev) => ({ ...prev, distancia: e.target.value }))
                     }
+                    readOnly={!distanciaEditavel}
                     disabled={editOrcamentoSubmitting}
+                    style={!distanciaEditavel ? { background: '#f5f5f5', cursor: 'default' } : {}}
                   />
                 </label>
 
@@ -2459,6 +2957,30 @@ function OrcamentoDetalhes() {
                   </select>
                 </label>
 
+                {produtoFilhos.length > 0 && (
+                  <label className="modal-form-group modal-form-group-full">
+                    Especificação (filho)
+                    <select
+                      className="modal-select"
+                      value={addEsquadriaForm.produtoFilhoId || ''}
+                      onChange={(event) =>
+                        setAddEsquadriaForm((prev) => ({
+                          ...prev,
+                          produtoFilhoId: event.target.value,
+                        }))
+                      }
+                      disabled={filhosLoading || addEsquadriaSubmitting}
+                    >
+                      <option value="">Sem especificação (usar produto pai)</option>
+                      {produtoFilhos.map((filho) => (
+                        <option key={filho.id} value={filho.id}>
+                          {filho.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
                 <label className="modal-form-group">
                   Quantidade
                   <input
@@ -2589,6 +3111,200 @@ function OrcamentoDetalhes() {
             </div>
           </div>
         )}
+        {/* 2.1 — Add/Edit Acessório Modal */}
+        {isAddAcessorioModalOpen && (
+          <div className="modal-overlay" role="dialog" aria-modal="true">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h2>{editingAcessorioId ? 'Editar Acessório' : 'Adicionar Acessório'}</h2>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={closeAddAcessorioModal}
+                  disabled={acessorioSubmitting}
+                >
+                  X
+                </button>
+              </div>
+              <form className="modal-form" onSubmit={handleAcessorioSubmit}>
+                {!editingAcessorioId && (
+                  <>
+                    <label className="modal-form-group modal-form-group-full">
+                      Categoria
+                      <select
+                        className="modal-select"
+                        value={addAcessorioForm.categoriaId}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setAddAcessorioForm((prev) => ({ ...prev, categoriaId: val, produtoId: '' }))
+                          loadAcessorioProdutos(val)
+                        }}
+                        disabled={acessorioSubmitting}
+                      >
+                        <option value="">Selecione a categoria</option>
+                        {acessorioCategorias.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.nome || cat.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="modal-form-group modal-form-group-full">
+                      Produto
+                      <select
+                        className="modal-select"
+                        value={addAcessorioForm.produtoId}
+                        onChange={(e) =>
+                          setAddAcessorioForm((prev) => ({ ...prev, produtoId: e.target.value }))
+                        }
+                        disabled={acessorioSubmitting || !addAcessorioForm.categoriaId}
+                      >
+                        <option value="">Selecione o produto</option>
+                        {acessorioProdutos.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name || p.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                )}
+                <label className="modal-form-group">
+                  Quantidade
+                  <input
+                    className="modal-input"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={addAcessorioForm.quantidade}
+                    onChange={(e) =>
+                      setAddAcessorioForm((prev) => ({ ...prev, quantidade: e.target.value }))
+                    }
+                    disabled={acessorioSubmitting}
+                  />
+                </label>
+                <label className="modal-form-group modal-form-group-full">
+                  Observação
+                  <input
+                    className="modal-input"
+                    type="text"
+                    value={addAcessorioForm.observacao}
+                    onChange={(e) =>
+                      setAddAcessorioForm((prev) => ({ ...prev, observacao: e.target.value }))
+                    }
+                    disabled={acessorioSubmitting}
+                  />
+                </label>
+                {acessorioError && (
+                  <div className="modal-form-group-full budget-modal-feedback">{acessorioError}</div>
+                )}
+                <div className="modal-form-group-full budget-add-modal-actions">
+                  <button
+                    type="button"
+                    className="chip-button"
+                    onClick={closeAddAcessorioModal}
+                    disabled={acessorioSubmitting}
+                  >
+                    Fechar
+                  </button>
+                  <button type="submit" className="chip-button" disabled={acessorioSubmitting}>
+                    {acessorioSubmitting ? 'Salvando...' : editingAcessorioId ? 'Salvar' : 'Adicionar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* 2.2 — Alterar Linha Modal */}
+        {isAlterarLinhaModalOpen && (
+          <div className="modal-overlay" role="dialog" aria-modal="true">
+            <div className="modal-content" style={{ maxWidth: 700, width: '95vw' }}>
+              <div className="modal-header">
+                <h2>Alterar Linha</h2>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={closeAlterarLinhaModal}
+                  disabled={alterarLinhaSubmitting}
+                >
+                  X
+                </button>
+              </div>
+              <form className="modal-form" onSubmit={handleAlterarLinhaSubmit}>
+                {alterarLinhaLoading ? (
+                  <p style={{ textAlign: 'center', padding: '16px 0' }}>Carregando produtos...</p>
+                ) : alterarLinhaItens.length === 0 ? (
+                  <p style={{ textAlign: 'center', padding: '16px 0' }}>Nenhum produto encontrado.</p>
+                ) : (
+                  <div className="modal-form-group-full" style={{ overflowY: 'auto', maxHeight: '60vh' }}>
+                    {alterarLinhaItens.map((item) => (
+                      <div
+                        key={item.orcamentoProdutoId}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr',
+                          gap: '12px',
+                          alignItems: 'center',
+                          padding: '8px 0',
+                          borderBottom: '1px solid #e5e7eb',
+                          minWidth: 0,
+                        }}
+                      >
+                        <span style={{ fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.nome}>
+                          {item.nome}
+                        </span>
+                        <select
+                          className="modal-select"
+                          style={{ width: '100%', minWidth: 0, boxSizing: 'border-box' }}
+                          value={alterarLinhaSelecoes[item.orcamentoProdutoId] ?? ''}
+                          onChange={(e) =>
+                            setAlterarLinhaSelecoes((prev) => ({
+                              ...prev,
+                              [item.orcamentoProdutoId]: e.target.value,
+                            }))
+                          }
+                          disabled={alterarLinhaSubmitting || item.alternativas.length === 0}
+                        >
+                          {item.alternativas.length === 0 ? (
+                            <option value="">Sem alternativas</option>
+                          ) : (
+                            item.alternativas.map((alt) => (
+                              <option key={alt.id} value={alt.id}>
+                                {alt.nome}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {alterarLinhaError && (
+                  <div className="modal-form-group-full budget-modal-feedback">{alterarLinhaError}</div>
+                )}
+
+                <div className="modal-form-group-full budget-add-modal-actions">
+                  <button
+                    type="button"
+                    className="chip-button"
+                    onClick={closeAlterarLinhaModal}
+                    disabled={alterarLinhaSubmitting}
+                  >
+                    Fechar
+                  </button>
+                  {!alterarLinhaLoading && alterarLinhaItens.length > 0 && (
+                    <button type="submit" className="chip-button" disabled={alterarLinhaSubmitting}>
+                      {alterarLinhaSubmitting ? 'Alterando...' : 'Alterar'}
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   )

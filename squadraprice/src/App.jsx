@@ -11,6 +11,8 @@ import Orcamentos from './components/Orcamentos'
 import OrcamentoDetalhes from './components/OrcamentoDetalhes'
 import OrcamentoMemorial from './components/OrcamentoMemorial'
 import OrcamentoPrint from './components/OrcamentoPrint'
+import OrcamentoPrecificacaoPrint from './components/OrcamentoPrecificacaoPrint'
+import PedidoOrcamento from './components/PedidoOrcamento'
 import ModeloOrcamento from './components/ModeloOrcamento'
 import CriarOrcamento from './components/CriarOrcamento'
 import Fornecedores from './components/Fornecedores'
@@ -32,6 +34,8 @@ function App() {
       <Route path="/Orcamentos/:id" element={<OrcamentoDetalhes />} />
       <Route path="/Orcamentos/:id/memorial" element={<OrcamentoMemorial />} />
       <Route path="/Orcamentos/:id/print" element={<OrcamentoPrint />} />
+      <Route path="/Orcamentos/:id/precificacao" element={<OrcamentoPrecificacaoPrint />} />
+      <Route path="/PedidoOrcamento" element={<PedidoOrcamento />} />
       <Route path="/CriarOrcamento" element={<CriarOrcamento />} />
       <Route path="/ModeloOrcamento" element={<ModeloOrcamento />} />
       <Route path="/Fornecedores" element={<Fornecedores />} />
