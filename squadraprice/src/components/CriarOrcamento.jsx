@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../App.css'
 import Header from './Header'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 
 const initialFormData = {
   tipoResponsavel: 'Eng.',
@@ -75,7 +74,7 @@ function CriarOrcamento() {
     const loadUfs = async () => {
       try {
         setLoadingUfs(true)
-        const response = await fetch(`${API_BASE_URL}/api/cidades-estados/estados?page=0&size=1000`)
+        const response = await apiFetch('/api/cidades-estados/estados?page=0&size=1000')
         if (!response.ok) {
           throw new Error(`Falha ao buscar UFs (${response.status})`)
         }
@@ -114,7 +113,7 @@ function CriarOrcamento() {
       }
       try {
         setLoadingCidades(true)
-        const response = await fetch(`${API_BASE_URL}/api/cidades-estados/estados/${formData.ufId}/cidades`)
+        const response = await apiFetch(`/api/cidades-estados/estados/${formData.ufId}/cidades`)
         if (!response.ok) {
           throw new Error(`Falha ao buscar cidades (${response.status})`)
         }
@@ -196,11 +195,8 @@ function CriarOrcamento() {
 
     try {
       setIsSubmitting(true)
-      const response = await fetch(`${API_BASE_URL}/api/orcamentos`, {
+      const response = await apiFetch('/api/orcamentos', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(payload),
       })
       if (!response.ok) {

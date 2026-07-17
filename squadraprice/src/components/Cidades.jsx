@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import '../App.css'
 import Header from './Header'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 
 function Cidades() {
   const [cities, setCities] = useState([])
@@ -23,8 +22,8 @@ function Cidades() {
     const loadCities = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(
-          `${API_BASE_URL}/api/cidades-estados/cidades?page=${currentPage}&size=${pageSize}`
+        const response = await apiFetch(
+          `/api/cidades-estados/cidades?page=${currentPage}&size=${pageSize}`
         )
         if (!response.ok) {
           throw new Error(`Falha ao buscar cidades (${response.status})`)

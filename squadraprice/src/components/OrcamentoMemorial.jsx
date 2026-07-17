@@ -2,8 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import '../App.css'
 import Header from './Header'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 
 const resolveImageSrc = (foto) => {
   if (!foto) return ''
@@ -31,7 +30,7 @@ function OrcamentoMemorial() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/memorial`)
+      const res = await apiFetch(`/api/orcamentos/${id}/memorial`)
       if (!res.ok) throw new Error(`Falha ao buscar memorial (${res.status})`)
       const data = await res.json()
       setMemorial(data)

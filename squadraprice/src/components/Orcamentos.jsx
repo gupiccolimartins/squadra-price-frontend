@@ -2,8 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../App.css'
 import Header from './Header'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 const PAGE_SIZE = 25
 
 function Orcamentos() {
@@ -54,7 +53,7 @@ function Orcamentos() {
     try {
       setIsLoading(true)
       const qs = buildQueryString(currentPage, currentFilters)
-      const response = await fetch(`${API_BASE_URL}/api/orcamentos/paged?${qs}`, {
+      const response = await apiFetch(`/api/orcamentos/paged?${qs}`, {
         signal: abortControllerRef.current.signal,
       })
       if (!response.ok) {
@@ -75,12 +74,12 @@ function Orcamentos() {
   }, [buildQueryString])
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/orcamentos/usuarios`)
+    apiFetch('/api/orcamentos/usuarios')
       .then((r) => r.ok ? r.json() : [])
       .then(setUsuarios)
       .catch(() => setUsuarios([]))
 
-    fetch(`${API_BASE_URL}/api/orcamentos/status`)
+    apiFetch('/api/orcamentos/status')
       .then((r) => r.ok ? r.json() : [])
       .then(setStatusList)
       .catch(() => setStatusList([]))

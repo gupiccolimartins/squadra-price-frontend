@@ -1,5 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import Home from './components/Home'
+import Login from './components/Login'
+import PrivateRoute from './components/PrivateRoute'
 import Usuarios from './components/Usuarios'
 import Constantes from './components/Constantes'
 import Cidades from './components/Cidades'
@@ -21,26 +23,33 @@ import CoresAluminio from './components/CoresAluminio'
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/Usuarios" element={<Usuarios />} />
-      <Route path="/Constantes" element={<Constantes />} />
-      <Route path="/Cidades" element={<Cidades />} />
-      <Route path="/CidadesEstados" element={<Cidades />} />
-      <Route path="/Estados" element={<Estados />} />
-      <Route path="/Produtos" element={<Produtos />} />
-      <Route path="/Insumos" element={<Insumos />} />
-      <Route path="/Vidros" element={<Vidros />} />
-      <Route path="/Orcamentos" element={<Orcamentos />} />
-      <Route path="/Orcamentos/:id" element={<OrcamentoDetalhes />} />
-      <Route path="/Orcamentos/:id/memorial" element={<OrcamentoMemorial />} />
-      <Route path="/Orcamentos/:id/print" element={<OrcamentoPrint />} />
-      <Route path="/Orcamentos/:id/precificacao" element={<OrcamentoPrecificacaoPrint />} />
+      <Route path="/Login" element={<Login />} />
       <Route path="/PedidoOrcamento" element={<PedidoOrcamento />} />
-      <Route path="/CriarOrcamento" element={<CriarOrcamento />} />
-      <Route path="/ModeloOrcamento" element={<ModeloOrcamento />} />
-      <Route path="/Fornecedores" element={<Fornecedores />} />
-      <Route path="/CoresAluminio" element={<CoresAluminio />} />
-      <Route path="*" element={<Home />} />
+
+      <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
+
+      {/* Admin-only routes */}
+      <Route path="/Usuarios" element={<PrivateRoute adminOnly><Usuarios /></PrivateRoute>} />
+      <Route path="/Constantes" element={<PrivateRoute adminOnly><Constantes /></PrivateRoute>} />
+      <Route path="/Cidades" element={<PrivateRoute adminOnly><Cidades /></PrivateRoute>} />
+      <Route path="/CidadesEstados" element={<PrivateRoute adminOnly><Cidades /></PrivateRoute>} />
+      <Route path="/Estados" element={<PrivateRoute adminOnly><Estados /></PrivateRoute>} />
+      <Route path="/Produtos" element={<PrivateRoute adminOnly><Produtos /></PrivateRoute>} />
+      <Route path="/Insumos" element={<PrivateRoute adminOnly><Insumos /></PrivateRoute>} />
+      <Route path="/Vidros" element={<PrivateRoute adminOnly><Vidros /></PrivateRoute>} />
+      <Route path="/Fornecedores" element={<PrivateRoute adminOnly><Fornecedores /></PrivateRoute>} />
+      <Route path="/CoresAluminio" element={<PrivateRoute adminOnly><CoresAluminio /></PrivateRoute>} />
+      <Route path="/ModeloOrcamento" element={<PrivateRoute adminOnly><ModeloOrcamento /></PrivateRoute>} />
+
+      {/* Authenticated routes (any role) */}
+      <Route path="/Orcamentos" element={<PrivateRoute><Orcamentos /></PrivateRoute>} />
+      <Route path="/Orcamentos/:id" element={<PrivateRoute><OrcamentoDetalhes /></PrivateRoute>} />
+      <Route path="/Orcamentos/:id/memorial" element={<PrivateRoute><OrcamentoMemorial /></PrivateRoute>} />
+      <Route path="/Orcamentos/:id/print" element={<PrivateRoute><OrcamentoPrint /></PrivateRoute>} />
+      <Route path="/Orcamentos/:id/precificacao" element={<PrivateRoute><OrcamentoPrecificacaoPrint /></PrivateRoute>} />
+      <Route path="/CriarOrcamento" element={<PrivateRoute><CriarOrcamento /></PrivateRoute>} />
+
+      <Route path="*" element={<PrivateRoute><Home /></PrivateRoute>} />
     </Routes>
   )
 }

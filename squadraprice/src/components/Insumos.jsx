@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import '../App.css'
 import Header from './Header'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 const PRICING_TYPES = [
   { value: 'METER', label: 'Por metro', unitLabel: 'R$/m' },
   { value: 'WEIGHT', label: 'Por peso', unitLabel: 'R$/kg' },
@@ -77,10 +76,10 @@ function Insumos() {
 
       const query = params.toString()
       const url = query
-        ? `${API_BASE_URL}/api/insumos/search?${query}`
-        : `${API_BASE_URL}/api/insumos?page=${page}&size=${pageSize}`
+        ? `/api/insumos/search?${query}`
+        : `/api/insumos?page=${page}&size=${pageSize}`
 
-      const response = await fetch(url)
+      const response = await apiFetch(url)
       if (!response.ok) {
         throw new Error(`Falha ao buscar insumos (${response.status})`)
       }
@@ -116,8 +115,8 @@ function Insumos() {
     const loadSupplies = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(
-          `${API_BASE_URL}/api/insumos?page=${currentPage}&size=${pageSize}`
+        const response = await apiFetch(
+          `/api/insumos?page=${currentPage}&size=${pageSize}`
         )
         if (!response.ok) {
           throw new Error(`Falha ao buscar insumos (${response.status})`)
@@ -156,8 +155,8 @@ function Insumos() {
     const loadFilters = async () => {
       try {
         const [categoriesResponse, suppliersResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/insumos/categories`),
-          fetch(`${API_BASE_URL}/api/insumos/fornecedores`),
+          apiFetch('/api/insumos/categories'),
+          apiFetch('/api/insumos/fornecedores'),
         ])
 
         if (!categoriesResponse.ok) {
@@ -290,9 +289,8 @@ function Insumos() {
     setIsCreateSaving(true)
     setCreateErrorMessage('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/insumos`, {
+      const response = await apiFetch('/api/insumos', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           categoryId: Number(createForm.categoryId),
           supplierId: Number(createForm.supplierId),
@@ -419,9 +417,8 @@ function Insumos() {
     setIsEditSaving(true)
     setEditErrorMessage('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/insumos/${editingSupplyId}`, {
+      const response = await apiFetch(`/api/insumos/${editingSupplyId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           categoryId: Number(editForm.categoryId),
           supplierId: Number(editForm.supplierId),

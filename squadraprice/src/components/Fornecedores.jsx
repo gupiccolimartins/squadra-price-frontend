@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import '../App.css'
 import Header from './Header'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 
 const STATUS_OPTIONS = [
   { value: 1, label: 'Ativo' },
@@ -33,8 +32,8 @@ function Fornecedores() {
     let isMounted = true
     try {
       setIsLoading(true)
-      const response = await fetch(
-        `${API_BASE_URL}/api/fornecedores?page=${page}&size=${size}`
+      const response = await apiFetch(
+        `/api/fornecedores?page=${page}&size=${size}`
       )
       if (!response.ok) {
         throw new Error(`Falha ao buscar fornecedores (${response.status})`)
@@ -127,11 +126,10 @@ function Fornecedores() {
     setFormError('')
     try {
       const url = isEditMode
-        ? `${API_BASE_URL}/api/fornecedores/${editingId}`
-        : `${API_BASE_URL}/api/fornecedores`
-      const response = await fetch(url, {
+        ? `/api/fornecedores/${editingId}`
+        : '/api/fornecedores'
+      const response = await apiFetch(url, {
         method: isEditMode ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: form.name.trim(), statusId: form.statusId }),
       })
       if (!response.ok) {

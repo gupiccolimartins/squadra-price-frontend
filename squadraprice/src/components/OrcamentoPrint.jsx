@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import '../App.css'
 import Header from './Header'
+import { apiFetch, API_BASE_URL } from '../utils/api'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
-const IMG_BASE_URL = import.meta.env.VITE_IMG_BASE_URL || 'http://localhost:8080'
+const IMG_BASE_URL = import.meta.env.VITE_IMG_BASE_URL || API_BASE_URL
 
 const formatMoney = (value) => {
   const parsed = Number.parseFloat(value)
@@ -28,7 +28,7 @@ function OrcamentoPrint() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/detalhes`)
+      const res = await apiFetch(`/api/orcamentos/${id}/detalhes`)
       if (!res.ok) throw new Error(`Falha ao buscar orçamento (${res.status})`)
       const data = await res.json()
       setBudget(data)

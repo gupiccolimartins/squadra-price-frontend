@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import '../App.css'
 import Header from './Header'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 
 function Usuarios() {
   const [users, setUsers] = useState([])
@@ -35,8 +34,8 @@ function Usuarios() {
     const loadUsers = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(
-          `${API_BASE_URL}/api/users?page=${currentPage}&size=${pageSize}`
+        const response = await apiFetch(
+          `/api/users?page=${currentPage}&size=${pageSize}`
         )
         if (!response.ok) {
           throw new Error(`Falha ao buscar usuarios (${response.status})`)
@@ -131,13 +130,10 @@ function Usuarios() {
     setCreateError('')
     try {
       const endpoint = isEditMode
-        ? `${API_BASE_URL}/api/users/${editingUserId}`
-        : `${API_BASE_URL}/api/users`
-      const response = await fetch(endpoint, {
+        ? `/api/users/${editingUserId}`
+        : '/api/users'
+      const response = await apiFetch(endpoint, {
         method: isEditMode ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(createForm),
       })
       if (!response.ok) {

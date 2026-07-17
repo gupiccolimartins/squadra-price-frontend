@@ -2,8 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Editor } from '@tinymce/tinymce-react'
 import '../App.css'
 import Header from './Header'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 
 function ModeloOrcamento() {
   const editorRef = useRef(null)
@@ -19,7 +18,7 @@ function ModeloOrcamento() {
     const loadModelo = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(`${API_BASE_URL}/api/orcamento-modelo`)
+        const response = await apiFetch('/api/orcamento-modelo')
         if (!response.ok) {
           throw new Error(`Falha ao carregar modelo (${response.status})`)
         }
@@ -55,11 +54,8 @@ function ModeloOrcamento() {
     setSuccessMessage('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/orcamento-modelo`, {
+      const response = await apiFetch('/api/orcamento-modelo', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ modelo: content }),
       })
 

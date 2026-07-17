@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import '../App.css'
+import { apiFetch } from '../utils/api'
 import Header from './Header'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
 
 const fallbackBudget = (id) => ({
@@ -242,7 +241,7 @@ function OrcamentoDetalhes() {
     }
     try {
       setDetailsLoading(true)
-      const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/detalhes`)
+      const response = await apiFetch(`/api/orcamentos/${id}/detalhes`)
       if (!response.ok) {
         throw new Error(`Falha ao buscar detalhes do orçamento (${response.status})`)
       }
@@ -279,8 +278,8 @@ function OrcamentoDetalhes() {
       return
     }
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/orcamentos/linhas-por-familia?familia=${familia}`
+      const response = await apiFetch(
+        `/api/orcamentos/linhas-por-familia?familia=${familia}`
       )
       if (!response.ok) {
         throw new Error('Falha ao carregar linhas da família')
@@ -304,9 +303,9 @@ function OrcamentoDetalhes() {
     try {
       setFilteredProductsLoading(true)
       const url = isAluminio
-        ? `${API_BASE_URL}/api/orcamentos/lista-produtos?linhaId=${linhaId}&familia=ALUMINIO`
-        : `${API_BASE_URL}/api/orcamentos/lista-produtos?corId=${corId}&linhaId=${linhaId}`
-      const response = await fetch(url)
+        ? `/api/orcamentos/lista-produtos?linhaId=${linhaId}&familia=ALUMINIO`
+        : `/api/orcamentos/lista-produtos?corId=${corId}&linhaId=${linhaId}`
+      const response = await apiFetch(url)
       if (!response.ok) {
         throw new Error('Falha ao carregar produtos da linha/cor')
       }
@@ -328,10 +327,10 @@ function OrcamentoDetalhes() {
       setAddEsquadriaLoading(true)
       setAddEsquadriaError('')
       const [colorsResponse, linesResponse, glassesResponse, aluColorsResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/products/colors`),
-        fetch(`${API_BASE_URL}/api/products/lines`),
-        fetch(`${API_BASE_URL}/api/vidros?page=0&size=200`),
-        fetch(`${API_BASE_URL}/api/cor-aluminio`),
+        apiFetch('/api/products/colors'),
+        apiFetch('/api/products/lines'),
+        apiFetch('/api/vidros?page=0&size=200'),
+        apiFetch('/api/cor-aluminio'),
       ])
 
       if (!colorsResponse.ok || !linesResponse.ok || !glassesResponse.ok || !aluColorsResponse.ok) {
@@ -382,11 +381,10 @@ function OrcamentoDetalhes() {
       if (Number.isNaN(largura) || largura <= 0 || Number.isNaN(altura) || altura <= 0) return
       try {
         setSavingMedidas((current) => ({ ...current, [produtoId]: true }))
-        const response = await fetch(
-          `${API_BASE_URL}/api/orcamentos/produtos/${produtoId}/medidas`,
+        const response = await apiFetch(
+          `/api/orcamentos/produtos/${produtoId}/medidas`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ largura, altura }),
           }
         )
@@ -430,11 +428,10 @@ function OrcamentoDetalhes() {
       if (!vidroId) return
       try {
         setSavingVidro((current) => ({ ...current, [produtoId]: true }))
-        const response = await fetch(
-          `${API_BASE_URL}/api/orcamentos/produtos/${produtoId}/vidro`,
+        const response = await apiFetch(
+          `/api/orcamentos/produtos/${produtoId}/vidro`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ vidroId: Number.parseInt(vidroId, 10) }),
           }
         )
@@ -476,11 +473,10 @@ function OrcamentoDetalhes() {
       if (obs === undefined) return
       try {
         setSavingObservacao((cur) => ({ ...cur, [produtoId]: true }))
-        const response = await fetch(
-          `${API_BASE_URL}/api/orcamentos/produtos/${produtoId}/observacao`,
+        const response = await apiFetch(
+          `/api/orcamentos/produtos/${produtoId}/observacao`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ observacao: obs }),
           }
         )
@@ -521,9 +517,8 @@ function OrcamentoDetalhes() {
     if (!window.confirm(`Excluir ${selecionados.size} produto(s) selecionado(s)?`)) return
     try {
       setBulkDeleting(true)
-      const response = await fetch(`${API_BASE_URL}/api/orcamentos/produtos/bulk`, {
+      const response = await apiFetch('/api/orcamentos/produtos/bulk', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: Array.from(selecionados) }),
       })
       if (!response.ok) {
@@ -541,7 +536,7 @@ function OrcamentoDetalhes() {
   // 2.1 — Acessórios
   const loadAcessorioCategorias = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products/accessory-categories`)
+      const response = await apiFetch('/api/products/accessory-categories')
       if (!response.ok) return
       const data = await response.json()
       setAcessorioCategorias(Array.isArray(data) ? data : [])
@@ -556,8 +551,8 @@ function OrcamentoDetalhes() {
       return
     }
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/orcamentos/lista-acessorios?categoriaAcessorioId=${categoriaId}`
+      const response = await apiFetch(
+        `/api/orcamentos/lista-acessorios?categoriaAcessorioId=${categoriaId}`
       )
       if (!response.ok) return
       const data = await response.json()
@@ -602,20 +597,18 @@ function OrcamentoDetalhes() {
       setAcessorioError('')
       let response
       if (editingAcessorioId) {
-        response = await fetch(`${API_BASE_URL}/api/orcamentos/acessorios/${editingAcessorioId}`, {
+        response = await apiFetch(`/api/orcamentos/acessorios/${editingAcessorioId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             quantidade: Number.parseFloat(addAcessorioForm.quantidade),
             observacao: addAcessorioForm.observacao.trim(),
           }),
         })
       } else {
-        response = await fetch(
-          `${API_BASE_URL}/api/orcamentos/produtos/${addAcessorioTargetId}/acessorios`,
+        response = await apiFetch(
+          `/api/orcamentos/produtos/${addAcessorioTargetId}/acessorios`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               produtoId: Number.parseInt(addAcessorioForm.produtoId, 10),
               quantidade: Number.parseFloat(addAcessorioForm.quantidade),
@@ -640,7 +633,7 @@ function OrcamentoDetalhes() {
   const handleDeleteAcessorio = useCallback(async (acessorioId) => {
     if (!window.confirm('Excluir este acessório?')) return
     try {
-      const response = await fetch(`${API_BASE_URL}/api/orcamentos/acessorios/${acessorioId}`, {
+      const response = await apiFetch(`/api/orcamentos/acessorios/${acessorioId}`, {
         method: 'DELETE',
       })
       if (!response.ok) throw new Error('Erro ao excluir acessório')
@@ -658,7 +651,7 @@ function OrcamentoDetalhes() {
     setAlterarLinhaLoading(true)
     setIsAlterarLinhaModalOpen(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/alterar-linha-itens`)
+      const response = await apiFetch(`/api/orcamentos/${id}/alterar-linha-itens`)
       const data = response.ok ? await response.json() : []
       setAlterarLinhaItens(data)
       const selecoes = {}
@@ -692,9 +685,8 @@ function OrcamentoDetalhes() {
     try {
       setAlterarLinhaSubmitting(true)
       setAlterarLinhaError('')
-      const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/alterar-linha-itens`, {
+      const response = await apiFetch(`/api/orcamentos/${id}/alterar-linha-itens`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ itens }),
       })
       if (!response.ok) throw new Error('Erro ao alterar linha')
@@ -715,7 +707,7 @@ function OrcamentoDetalhes() {
     }
     try {
       setFilhosLoading(true)
-      const response = await fetch(`${API_BASE_URL}/api/products/${produtoId}/filhos`)
+      const response = await apiFetch(`/api/products/${produtoId}/filhos`)
       if (!response.ok) {
         setProdutoFilhos([])
         return
@@ -743,8 +735,8 @@ function OrcamentoDetalhes() {
     if (!destino) return
     try {
       setCalculandoKm(true)
-      const response = await fetch(
-        `${API_BASE_URL}/api/orcamentos/calcular-km?origem=Vinhedo - SP&destino=${encodeURIComponent(destino)}`
+      const response = await apiFetch(
+        `/api/orcamentos/calcular-km?origem=Vinhedo - SP&destino=${encodeURIComponent(destino)}`
       )
       if (!response.ok) throw new Error('Erro ao calcular distância')
       const data = await response.json()
@@ -768,7 +760,7 @@ function OrcamentoDetalhes() {
         const val = editOrcamentoForm[f]
         if (val !== undefined && val !== null && val !== '') params.set(f, val)
       })
-      const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/calcular-totais?${params.toString()}`)
+      const response = await apiFetch(`/api/orcamentos/${id}/calcular-totais?${params.toString()}`)
       if (!response.ok) throw new Error('Erro ao simular valor')
       const data = await response.json()
       setSimularValorResult(data)
@@ -787,7 +779,7 @@ function OrcamentoDetalhes() {
     const loadProducts = async () => {
       try {
         setProductsLoading(true)
-        const response = await fetch(`${API_BASE_URL}/api/products`)
+        const response = await apiFetch('/api/products')
         if (!response.ok) {
           throw new Error(`Falha ao buscar produtos (${response.status})`)
         }
@@ -900,7 +892,7 @@ function OrcamentoDetalhes() {
     }
     try {
       setCidadesLoading(true)
-      const resp = await fetch(`${API_BASE_URL}/api/cidades-estados/estados/${ufId}/cidades`)
+      const resp = await apiFetch(`/api/cidades-estados/estados/${ufId}/cidades`)
       if (resp.ok) {
         const data = await resp.json()
         setCidadeOptions(Array.isArray(data) ? data : [])
@@ -945,7 +937,7 @@ function OrcamentoDetalhes() {
     const ufId = budget.ufId ? String(budget.ufId) : ''
     setEditOrcamentoUfId(ufId)
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/cidades-estados/estados?page=0&size=100`)
+      const resp = await apiFetch('/api/cidades-estados/estados?page=0&size=100')
       if (resp.ok) {
         const data = await resp.json()
         setEstadoOptions(Array.isArray(data?.content) ? data.content : [])
@@ -968,7 +960,7 @@ function OrcamentoDetalhes() {
     setAlterarStatusError('')
     setSelectedStatusId('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/orcamentos/status`)
+      const response = await apiFetch('/api/orcamentos/status')
       if (response.ok) {
         const data = await response.json()
         setStatusOptions(Array.isArray(data) ? data : [])
@@ -990,7 +982,7 @@ function OrcamentoDetalhes() {
     setAlterarUsuarioError('')
     setSelectedUsuarioId('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/orcamentos/usuarios`)
+      const response = await apiFetch('/api/orcamentos/usuarios')
       if (response.ok) {
         const data = await response.json()
         setUsuarioOptions(Array.isArray(data) ? data : [])
@@ -1018,9 +1010,8 @@ function OrcamentoDetalhes() {
       try {
         setAlterarStatusSubmitting(true)
         setAlterarStatusError('')
-        const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/status`, {
+        const response = await apiFetch(`/api/orcamentos/${id}/status`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ statusOrcamentoId: Number(selectedStatusId) }),
         })
         if (!response.ok) {
@@ -1048,9 +1039,8 @@ function OrcamentoDetalhes() {
       try {
         setAlterarUsuarioSubmitting(true)
         setAlterarUsuarioError('')
-        const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/usuario`, {
+        const response = await apiFetch(`/api/orcamentos/${id}/usuario`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ usuarioId: Number(selectedUsuarioId) }),
         })
         if (!response.ok) {
@@ -1110,9 +1100,8 @@ function OrcamentoDetalhes() {
           freteAutomatico: editOrcamentoForm.freteAutomatico,
           observacao: editOrcamentoForm.observacao,
         }
-        const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}`, {
+        const response = await apiFetch(`/api/orcamentos/${id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
         if (!response.ok) {
@@ -1135,8 +1124,8 @@ function OrcamentoDetalhes() {
   const handleDuplicarEsquadria = useCallback(
     async (produtoId) => {
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/orcamentos/produtos/${produtoId}/duplicar`,
+        const response = await apiFetch(
+          `/api/orcamentos/produtos/${produtoId}/duplicar`,
           { method: 'POST' }
         )
         if (!response.ok) {
@@ -1155,8 +1144,8 @@ function OrcamentoDetalhes() {
     async (produtoId) => {
       if (!window.confirm('Você deseja excluir a esquadria?')) return
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/orcamentos/produtos/${produtoId}`,
+        const response = await apiFetch(
+          `/api/orcamentos/produtos/${produtoId}`,
           { method: 'DELETE' }
         )
         if (!response.ok) {
@@ -1174,7 +1163,7 @@ function OrcamentoDetalhes() {
   const handleExcluirOrcamento = useCallback(async () => {
     if (!window.confirm('Você deseja excluir a versão do orçamento?')) return
     try {
-      const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}`, { method: 'DELETE' })
+      const response = await apiFetch(`/api/orcamentos/${id}`, { method: 'DELETE' })
       if (!response.ok) {
         throw new Error('Erro ao excluir orçamento')
       }
@@ -1192,7 +1181,7 @@ function OrcamentoDetalhes() {
   const handleDuplicarOrcamento = useCallback(async () => {
     if (!window.confirm('Deseja duplicar este orçamento?')) return
     try {
-      const response = await fetch(`${API_BASE_URL}/api/orcamentos/${id}/duplicar`, { method: 'POST' })
+      const response = await apiFetch(`/api/orcamentos/${id}/duplicar`, { method: 'POST' })
       if (!response.ok) {
         throw new Error('Erro ao duplicar orçamento')
       }
@@ -1300,11 +1289,10 @@ function OrcamentoDetalhes() {
         : Number.parseInt(addEsquadriaForm.produtoId, 10)
 
       if (editingProduto) {
-        response = await fetch(
-          `${API_BASE_URL}/api/orcamentos/produtos/${editingProduto.id}`,
+        response = await apiFetch(
+          `/api/orcamentos/produtos/${editingProduto.id}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               produtoId: effectiveProdutoId,
               quantidade: Number.parseFloat(addEsquadriaForm.quantidade),
@@ -1324,9 +1312,8 @@ function OrcamentoDetalhes() {
           setAddEsquadriaError('Orçamento inválido')
           return
         }
-        response = await fetch(`${API_BASE_URL}/api/orcamentos/adicionar-esquadria`, {
+        response = await apiFetch('/api/orcamentos/adicionar-esquadria', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             orcamentoId,
             produtoId: effectiveProdutoId,

@@ -1,6 +1,5 @@
 import { useState } from 'react'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 
 function PedidoOrcamento() {
   const [form, setForm] = useState({ nome: '', telefone: '', email: '', cidade: '', observacoes: '' })
@@ -22,7 +21,7 @@ function PedidoOrcamento() {
       if (form.cidade) fd.append('cidade', form.cidade.trim())
       if (form.observacoes) fd.append('observacoes', form.observacoes.trim())
       if (arquivo) fd.append('arquivo', arquivo)
-      const response = await fetch(API_BASE_URL + '/api/orcamentos/pedido', { method: 'POST', body: fd })
+      const response = await apiFetch('/api/orcamentos/pedido', { method: 'POST', body: fd })
       if (!response.ok) { const msg = await response.text(); throw new Error(msg || 'Erro ao enviar pedido') }
       setSuccess(true)
     } catch (err) {

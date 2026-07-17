@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import '../App.css'
 import Header from './Header'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 
 function Constantes() {
   const [constants, setConstants] = useState([])
@@ -25,7 +24,7 @@ function Constantes() {
     const loadConstantes = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(`${API_BASE_URL}/api/constantes`)
+        const response = await apiFetch('/api/constantes')
         if (!response.ok) {
           throw new Error(`Falha ao buscar constantes (${response.status})`)
         }
@@ -82,13 +81,10 @@ function Constantes() {
     setCreateError('')
     try {
       const endpoint = isEditMode
-        ? `${API_BASE_URL}/api/constantes/${editingConstanteId}`
-        : `${API_BASE_URL}/api/constantes`
-      const response = await fetch(endpoint, {
+        ? `/api/constantes/${editingConstanteId}`
+        : '/api/constantes'
+      const response = await apiFetch(endpoint, {
         method: isEditMode ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           name: createForm.name,
           value: createForm.value === '' ? null : Number(createForm.value),

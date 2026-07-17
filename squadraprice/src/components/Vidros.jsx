@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import '../App.css'
 import Header from './Header'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 const DEFAULT_PAGE_SIZE = 10
 
 const DEFAULT_CREATE_FORM = {
@@ -51,7 +50,7 @@ function Vidros() {
           params.set('status', filters.status)
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/vidros?${params.toString()}`)
+        const response = await apiFetch(`/api/vidros?${params.toString()}`)
         if (!response.ok) {
           throw new Error(`Falha ao buscar vidros (${response.status})`)
         }
@@ -90,7 +89,7 @@ function Vidros() {
 
     const loadSuppliers = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/fornecedores?page=0&size=500`)
+        const response = await apiFetch('/api/fornecedores?page=0&size=500')
         if (!response.ok) {
           throw new Error(`Falha ao buscar fornecedores (${response.status})`)
         }
@@ -153,11 +152,8 @@ function Vidros() {
     setCreateErrorMessage('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/vidros`, {
+      const response = await apiFetch('/api/vidros', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           name: createForm.name.trim(),
           price: parsedPrice,

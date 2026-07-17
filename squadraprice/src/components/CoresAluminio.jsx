@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import '../App.css'
 import Header from './Header'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 
 const EMPTY_FORM = { codigo: '', descricao: '', precoPorKg: '' }
 
@@ -32,7 +31,7 @@ function CoresAluminio() {
       setErrorMessage('')
       const params = new URLSearchParams({ page, size })
       if (query.trim()) params.append('query', query.trim())
-      const response = await fetch(`${API_BASE_URL}/api/cor-aluminio/paged?${params}`)
+      const response = await apiFetch(`/api/cor-aluminio/paged?${params}`)
       if (!response.ok) throw new Error(`Falha ao carregar cores (${response.status})`)
       const data = await response.json()
       setCores(Array.isArray(data.content) ? data.content : [])
@@ -104,11 +103,10 @@ function CoresAluminio() {
       setFormError('')
       const body = { codigo: form.codigo.trim(), descricao: form.descricao.trim(), precoPorKg: preco }
       const url = editingId
-        ? `${API_BASE_URL}/api/cor-aluminio/${editingId}`
-        : `${API_BASE_URL}/api/cor-aluminio`
-      const response = await fetch(url, {
+        ? `/api/cor-aluminio/${editingId}`
+        : '/api/cor-aluminio'
+      const response = await apiFetch(url, {
         method: editingId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
       if (!response.ok) {
@@ -127,7 +125,7 @@ function CoresAluminio() {
   const handleDelete = async (id) => {
     try {
       setDeleting(true)
-      const response = await fetch(`${API_BASE_URL}/api/cor-aluminio/${id}`, { method: 'DELETE' })
+      const response = await apiFetch(`/api/cor-aluminio/${id}`, { method: 'DELETE' })
       if (!response.ok) {
         const msg = await response.text()
         throw new Error(msg || 'Erro ao remover')

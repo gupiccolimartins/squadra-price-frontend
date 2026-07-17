@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import '../App.css'
 import Header from './Header'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 
 function Produtos() {
   const [products, setProducts] = useState([])
@@ -103,8 +102,8 @@ function Produtos() {
     const loadProducts = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(
-          `${API_BASE_URL}/api/products?page=${currentPage}&size=${pageSize}`
+        const response = await apiFetch(
+          `/api/products?page=${currentPage}&size=${pageSize}`
         )
         if (!response.ok) {
           throw new Error(`Falha ao buscar produtos (${response.status})`)
@@ -156,10 +155,10 @@ function Produtos() {
 
       const query = params.toString()
       const url = query
-        ? `${API_BASE_URL}/api/products/search?${query}`
-        : `${API_BASE_URL}/api/products?page=${page}&size=${pageSize}`
+        ? `/api/products/search?${query}`
+        : `/api/products?page=${page}&size=${pageSize}`
 
-      const response = await fetch(url)
+      const response = await apiFetch(url)
       if (!response.ok) {
         throw new Error(`Falha ao buscar produtos (${response.status})`)
       }
@@ -241,8 +240,8 @@ function Produtos() {
 
     try {
       setIsParentProductsLoading(true)
-      const response = await fetch(
-        `${API_BASE_URL}/api/products/parent-options?lineId=${lineId}&colorId=${colorId}&categoryId=1`
+      const response = await apiFetch(
+        `/api/products/parent-options?lineId=${lineId}&colorId=${colorId}&categoryId=1`
       )
       if (!response.ok) {
         throw new Error(`Falha ao buscar produtos pai (${response.status})`)
@@ -347,7 +346,7 @@ function Produtos() {
         formData.append('file', createForm.file)
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/products`, {
+      const response = await apiFetch('/api/products', {
         method: 'POST',
         body: formData,
       })
@@ -377,7 +376,7 @@ function Produtos() {
     setInsumosLoading(true)
     setInsumosErrorMessage('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products/${productId}/insumos`)
+      const response = await apiFetch(`/api/products/${productId}/insumos`)
       if (!response.ok) {
         throw new Error(`Falha ao buscar insumos (${response.status})`)
       }
@@ -416,8 +415,8 @@ function Produtos() {
       const query = code
         ? `code=${encodeURIComponent(code)}&status=ATIVO`
         : 'status=ATIVO'
-      const response = await fetch(
-        `${API_BASE_URL}/api/insumos/search?${query}`
+      const response = await apiFetch(
+        `/api/insumos/search?${query}`
       )
       if (!response.ok) {
         throw new Error(`Falha ao buscar insumos (${response.status})`)
@@ -440,8 +439,8 @@ function Produtos() {
     setInsumosErrorMessage('')
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/products/${selectedProduct.id}/alteracao?value=${checked}`,
+      const response = await apiFetch(
+        `/api/products/${selectedProduct.id}/alteracao?value=${checked}`,
         { method: 'PATCH' }
       )
       if (!response.ok) {
@@ -474,13 +473,12 @@ function Produtos() {
     setInsumosErrorMessage('')
     try {
       const endpoint = editingProductInsumoId
-        ? `${API_BASE_URL}/api/products/${selectedProduct.id}/insumos/${editingProductInsumoId}`
-        : `${API_BASE_URL}/api/products/${selectedProduct.id}/insumos`
+        ? `/api/products/${selectedProduct.id}/insumos/${editingProductInsumoId}`
+        : `/api/products/${selectedProduct.id}/insumos`
       const method = editingProductInsumoId ? 'PUT' : 'POST'
 
-      const response = await fetch(endpoint, {
+      const response = await apiFetch(endpoint, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           insumoId,
           quantity: quantidade,
@@ -523,8 +521,8 @@ function Produtos() {
 
     setInsumosErrorMessage('')
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/products/${selectedProduct.id}/insumos/${insumo.productInsumoId}`,
+      const response = await apiFetch(
+        `/api/products/${selectedProduct.id}/insumos/${insumo.productInsumoId}`,
         { method: 'DELETE' }
       )
       if (!response.ok) {
@@ -545,8 +543,8 @@ function Produtos() {
     }
     try {
       setIsEditParentProductsLoading(true)
-      const response = await fetch(
-        `${API_BASE_URL}/api/products/parent-options?lineId=${lineId}&colorId=${colorId}&categoryId=${categoryId || 1}`
+      const response = await apiFetch(
+        `/api/products/parent-options?lineId=${lineId}&colorId=${colorId}&categoryId=${categoryId || 1}`
       )
       if (!response.ok) throw new Error(`Falha ao buscar produtos pai (${response.status})`)
       const data = await response.json()
@@ -562,7 +560,7 @@ function Produtos() {
     setEditErrorMessage('')
     setEditParentProducts([])
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products/${product.id}`)
+      const response = await apiFetch(`/api/products/${product.id}`)
       if (!response.ok) throw new Error(`Falha ao carregar produto (${response.status})`)
       const detail = await response.json()
       const form = {
@@ -657,7 +655,7 @@ function Produtos() {
       formData.append('maxWidth', editForm.maxWidth)
       if (editForm.file) formData.append('file', editForm.file)
 
-      const response = await fetch(`${API_BASE_URL}/api/products/${editingProduct.id}`, {
+      const response = await apiFetch(`/api/products/${editingProduct.id}`, {
         method: 'PUT',
         body: formData,
       })
@@ -699,7 +697,7 @@ function Produtos() {
     setCalculateForm({ vidroId: '0', largura: '', altura: '' })
     setIsCalculateModalOpen(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products/active-glasses`)
+      const response = await apiFetch('/api/products/active-glasses')
       if (!response.ok) throw new Error(`Falha ao carregar vidros (${response.status})`)
       const data = await response.json()
       setCalculateGlasses(Array.isArray(data) ? data : [])
@@ -737,8 +735,8 @@ function Produtos() {
       if (calculateForm.vidroId && calculateForm.vidroId !== '0') {
         params.append('vidroId', calculateForm.vidroId)
       }
-      const response = await fetch(
-        `${API_BASE_URL}/api/products/${calculateProduct.id}/calculate?${params}`
+      const response = await apiFetch(
+        `/api/products/${calculateProduct.id}/calculate?${params}`
       )
       if (!response.ok) throw new Error(`Falha ao calcular produto (${response.status})`)
       const data = await response.json()
@@ -758,7 +756,7 @@ function Produtos() {
       return
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products/${product.id}/duplicate`, {
+      const response = await apiFetch(`/api/products/${product.id}/duplicate`, {
         method: 'POST',
       })
       if (!response.ok) {
@@ -797,7 +795,7 @@ function Produtos() {
 
     const loadCategories = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/products/categories`)
+        const response = await apiFetch('/api/products/categories')
         if (!response.ok) {
           throw new Error(`Falha ao buscar categorias (${response.status})`)
         }
@@ -828,7 +826,7 @@ function Produtos() {
 
     const loadLines = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/products/lines`)
+        const response = await apiFetch('/api/products/lines')
         if (!response.ok) {
           throw new Error(`Falha ao buscar linhas (${response.status})`)
         }
@@ -859,7 +857,7 @@ function Produtos() {
       let localCreateError = ''
 
       try {
-        const colorsResponse = await fetch(`${API_BASE_URL}/api/products/colors`)
+        const colorsResponse = await apiFetch('/api/products/colors')
         if (!colorsResponse.ok) {
           throw new Error(`Falha ao buscar cores (${colorsResponse.status})`)
         }
@@ -875,7 +873,7 @@ function Produtos() {
       }
 
       try {
-        const accessoriesResponse = await fetch(`${API_BASE_URL}/api/products/accessory-categories`)
+        const accessoriesResponse = await apiFetch('/api/products/accessory-categories')
         if (!accessoriesResponse.ok) {
           // Endpoint pode nao existir temporariamente em alguns ambientes.
           if (accessoriesResponse.status === 404) {

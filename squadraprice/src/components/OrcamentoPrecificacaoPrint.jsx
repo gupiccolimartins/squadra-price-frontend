@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+import { apiFetch } from '../utils/api'
 
 const fmt = (v) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v ?? 0)
@@ -53,7 +52,7 @@ function OrcamentoPrecificacaoPrint() {
   const load = useCallback(async () => {
     try {
       setLoading(true)
-      const response = await fetch(API_BASE_URL + '/api/orcamentos/' + id + '/detalhes')
+      const response = await apiFetch('/api/orcamentos/' + id + '/detalhes')
       if (!response.ok) throw new Error('Erro ' + response.status)
       const json = await response.json()
       setData(json)

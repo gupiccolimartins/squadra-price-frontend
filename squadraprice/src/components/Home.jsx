@@ -3,8 +3,20 @@ import Header from './Header'
 import { Link } from 'react-router-dom'
 
 function Home() {
-  const sections = [
-    {
+  const user = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('squadra_user') || '{}')
+    } catch {
+      return {}
+    }
+  })()
+
+  const isAdmin = user.permissaoId === 1
+
+  const sections = []
+
+  if (isAdmin) {
+    sections.push({
       title: 'Administrativo Geral',
       items: [
         { label: 'Usuários', icon: 'US', to: '/Usuarios' },
@@ -13,8 +25,9 @@ function Home() {
         { label: 'Texto de Orcamento', icon: 'TO', to: '/ModeloOrcamento' },
         { label: 'Fornecedores', icon: 'FO', to: '/Fornecedores' },
       ],
-    },
-    {
+    })
+
+    sections.push({
       title: 'Produtos e Insumos',
       items: [
         { label: 'Produtos', icon: 'PR', to: '/Produtos' },
@@ -22,16 +35,17 @@ function Home() {
         { label: 'Vidros', icon: 'VI', to: '/Vidros' },
         { label: 'Cores Alumínio', icon: 'CA', to: '/CoresAluminio' },
       ],
-    },
-    {
-      title: 'Operacional',
-      items: [
-        { label: 'Criar Orcamento', icon: 'CO', to: '/CriarOrcamento' },
-        { label: 'Listar Orcamentos', icon: 'LO', to: '/Orcamentos' },
-        { label: 'Agenda de Representantes', icon: 'AR' },
-      ],
-    },
-  ]
+    })
+  }
+
+  sections.push({
+    title: 'Operacional',
+    items: [
+      { label: 'Criar Orcamento', icon: 'CO', to: '/CriarOrcamento' },
+      { label: 'Listar Orcamentos', icon: 'LO', to: '/Orcamentos' },
+      { label: 'Agenda de Representantes', icon: 'AR' },
+    ],
+  })
 
   return (
     <div className="app">
