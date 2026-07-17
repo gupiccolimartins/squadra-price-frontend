@@ -19,6 +19,11 @@ import ModeloOrcamento from './components/ModeloOrcamento'
 import CriarOrcamento from './components/CriarOrcamento'
 import Fornecedores from './components/Fornecedores'
 import CoresAluminio from './components/CoresAluminio'
+import Agenda from './components/Agenda'
+import AgendaContato from './components/AgendaContato'
+import AgendaAcoes from './components/AgendaAcoes'
+import AgendaOportunidades from './components/AgendaOportunidades'
+import AgendaCalendario from './components/AgendaCalendario'
 
 function App() {
   return (
@@ -48,6 +53,12 @@ function App() {
       <Route path="/Orcamentos/:id/print" element={<PrivateRoute><OrcamentoPrint /></PrivateRoute>} />
       <Route path="/Orcamentos/:id/precificacao" element={<PrivateRoute><OrcamentoPrecificacaoPrint /></PrivateRoute>} />
       <Route path="/CriarOrcamento" element={<PrivateRoute><CriarOrcamento /></PrivateRoute>} />
+
+      <Route path="/Agenda" element={<PrivateRoute><Agenda /></PrivateRoute>} />
+      <Route path="/Agenda/Acoes" element={<PrivateRoute><AgendaAcoes /></PrivateRoute>} />
+      <Route path="/Agenda/Oportunidades" element={<PrivateRoute><AgendaOportunidades /></PrivateRoute>} />
+      <Route path="/Agenda/Calendario" element={<PrivateRoute><AgendaCalendario /></PrivateRoute>} />
+      <Route path="/Agenda/:id" element={<PrivateRoute><AgendaContato /></PrivateRoute>} />
 
       <Route path="*" element={<PrivateRoute><Home /></PrivateRoute>} />
     </Routes>

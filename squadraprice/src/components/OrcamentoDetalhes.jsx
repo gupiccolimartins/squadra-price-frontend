@@ -98,6 +98,7 @@ const resolveImageSrc = (foto) => {
 
 function OrcamentoDetalhes() {
   const { id } = useParams()
+  const [agendaContatoId, setAgendaContatoId] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
   const [products, setProducts] = useState([])
@@ -269,6 +270,28 @@ function OrcamentoDetalhes() {
       setDetailsError(error instanceof Error ? error.message : 'Erro ao buscar detalhes do orçamento')
     } finally {
       setDetailsLoading(false)
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (!id) {
+      setAgendaContatoId(null)
+      return undefined
+    }
+    let cancelled = false
+    apiFetch(`/api/agenda/contatos/por-orcamento/${id}`)
+      .then((r) => (r.ok ? r.json() : { agendaContatoId: 0 }))
+      .then((data) => {
+        if (!cancelled) {
+          const cid = data.agendaContatoId
+          setAgendaContatoId(cid && cid > 0 ? cid : null)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAgendaContatoId(null)
+      })
+    return () => {
+      cancelled = true
     }
   }, [id])
 
@@ -1633,6 +1656,15 @@ function OrcamentoDetalhes() {
             Voltar para orçamentos
           </button>
           <h1>Detalhes do Orçamento</h1>
+          {agendaContatoId && (
+            <button
+              className="agenda-primary-btn"
+              type="button"
+              onClick={() => navigate(`/Agenda/${agendaContatoId}`)}
+            >
+              Ver Agenda
+            </button>
+          )}
         </header>
 
         <section className="budget-detail-card">

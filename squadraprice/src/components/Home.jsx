@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import '../App.css'
 import Header from './Header'
 import { Link } from 'react-router-dom'
+import { apiFetch } from '../utils/api'
 
 function Home() {
   const user = (() => {
@@ -12,6 +14,20 @@ function Home() {
   })()
 
   const isAdmin = user.permissaoId === 1
+  const [pendentesAgenda, setPendentesAgenda] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    apiFetch('/api/agenda/acoes-pendentes/count')
+      .then((r) => (r.ok ? r.json() : { count: 0 }))
+      .then((data) => {
+        if (!cancelled) setPendentesAgenda(data.count ?? 0)
+      })
+      .catch(() => {
+        if (!cancelled) setPendentesAgenda(null)
+      })
+    return () => { cancelled = true }
+  }, [])
 
   const sections = []
 
@@ -43,7 +59,7 @@ function Home() {
     items: [
       { label: 'Criar Orcamento', icon: 'CO', to: '/CriarOrcamento' },
       { label: 'Listar Orcamentos', icon: 'LO', to: '/Orcamentos' },
-      { label: 'Agenda de Representantes', icon: 'AR' },
+      { label: 'Agenda de Representantes', icon: 'AR', to: '/Agenda', badgeKey: 'agendaPendentes' },
     ],
   })
 
@@ -61,6 +77,9 @@ function Home() {
                   <Link className="panel-item" key={item.label} to={item.to}>
                     <span className="panel-icon">{item.icon}</span>
                     <span>{item.label}</span>
+                    {item.badgeKey === 'agendaPendentes' && pendentesAgenda != null && pendentesAgenda > 0 && (
+                      <span className="panel-badge">{pendentesAgenda}</span>
+                    )}
                   </Link>
                 ) : (
                   <button className="panel-item" type="button" key={item.label}>
