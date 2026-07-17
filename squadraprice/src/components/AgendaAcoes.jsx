@@ -5,8 +5,6 @@ import Header from './Header'
 import AgendaNav from './AgendaNav'
 import { apiFetch } from '../utils/api'
 
-const PAGE_SIZE = 20
-
 function getLoggedUser() {
   try { return JSON.parse(localStorage.getItem('squadra_user') || '{}') } catch { return {} }
 }
@@ -26,6 +24,7 @@ function AgendaAcoes() {
   const [estagios, setEstagios] = useState([])
   const [usuarios, setUsuarios] = useState([])
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -38,7 +37,11 @@ function AgendaAcoes() {
   const load = useCallback(async () => {
     setIsLoading(true)
     try {
-      const params = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE), ordenacao: applied.ordenacao })
+      const params = new URLSearchParams({
+        page: String(page),
+        size: String(pageSize),
+        ordenacao: applied.ordenacao,
+      })
       if (applied.estagioId) params.set('estagioId', applied.estagioId)
       if (applied.usuarioId) params.set('usuarioId', applied.usuarioId)
       if (applied.ordenacao === 'Atrasados') params.set('atrasados', 'true')
@@ -55,13 +58,24 @@ function AgendaAcoes() {
     } finally {
       setIsLoading(false)
     }
-  }, [page, applied])
+  }, [page, pageSize, applied])
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
     apiFetch('/api/agenda/estagios').then((r) => r.ok ? r.json() : []).then(setEstagios).catch(() => setEstagios([]))
     apiFetch('/api/orcamentos/usuarios').then((r) => r.ok ? r.json() : []).then(setUsuarios).catch(() => setUsuarios([]))
   }, [])
+
+  const handlePageSizeChange = (newSize) => {
+    setPageSize(newSize)
+    setPage(0)
+  }
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 0 && newPage < totalPages) {
+      setPage(newPage)
+    }
+  }
 
   const concluir = async () => {
     const response = await apiFetch(`/api/agenda/acoes/${comentarioModal}/concluir`, {
@@ -119,51 +133,112 @@ function AgendaAcoes() {
 
           {errorMessage && <p className="budgets-error">{errorMessage}</p>}
           {isLoading ? <p className="budgets-loading">Carregando...</p> : (
-            <>
-              <div className="budgets-pagination">
-                <span className="budgets-pagination-info">Página {totalPages === 0 ? 0 : page + 1} de {totalPages} | Mostrando: {items.length} de {totalElements} Registros</span>
-                <div className="budgets-pagination-controls">
-                  <button type="button" className="budgets-pagination-button" disabled={page <= 0} onClick={() => setPage((p) => p - 1)}>Anterior</button>
-                  <button type="button" className="budgets-pagination-button" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>Próxima</button>
+            <div className="budgets-card">
+              <table className="budgets-table">
+                <thead>
+                  <tr>
+                    <th>Cliente</th><th>Ação</th><th>Descrição</th><th>Data</th><th>Responsável</th><th>Sit.</th><th>#</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id} className="budgets-row-clickable" onClick={() => navigate(`/Agenda/${item.agendaContatoId}`)}>
+                      <td>{item.contatoNome}</td>
+                      <td>{item.tipoAcaoNome}</td>
+                      <td>{item.descricao}</td>
+                      <td>{formatDateTime(item.data)}</td>
+                      <td>{item.responsavelNome}</td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        {item.situacaoId === 2 ? (
+                          <span className="agenda-situacao agenda-sit-concluida" title={item.comentario || 'Realizada'} />
+                        ) : new Date(item.data) < new Date() ? (
+                          <span className="agenda-situacao agenda-sit-atrasada" title="Atrasada" />
+                        ) : (
+                          <span className="agenda-situacao agenda-sit-pendente" title="Pendente" />
+                        )}
+                      </td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        {item.situacaoId !== 2 && (
+                          <button type="button" className="agenda-icon-btn" onClick={() => { setComentarioModal(item.id); setComentario('') }}>✓</button>
+                        )}
+                        <button type="button" className="agenda-icon-btn" onClick={() => excluir(item.id)}>🗑</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {items.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center' }}>Nenhuma ação cadastrada.</td></tr>}
+                </tbody>
+              </table>
+
+              <div className="pagination-container">
+                <div className="pagination-info">
+                  <span>Itens por página:</span>
+                  <select
+                    className="pagination-select"
+                    value={pageSize}
+                    onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span className="pagination-total">
+                    {totalElements > 0
+                      ? `${page * pageSize + 1}-${Math.min((page + 1) * pageSize, totalElements)} de ${totalElements}`
+                      : '0 registros'}
+                  </span>
+                </div>
+                <div className="pagination-controls">
+                  <button
+                    className="pagination-button"
+                    type="button"
+                    onClick={() => handlePageChange(0)}
+                    disabled={page === 0}
+                    aria-label="Primeira página"
+                  >
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                      <path d="M18.41 16.59L13.82 12l4.59-4.59L17 6l-6 6 6 6 1.41-1.41zM6 6h2v12H6V6z" fill="currentColor" />
+                    </svg>
+                  </button>
+                  <button
+                    className="pagination-button"
+                    type="button"
+                    onClick={() => handlePageChange(page - 1)}
+                    disabled={page === 0}
+                    aria-label="Página anterior"
+                  >
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                      <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12l4.58-4.59z" fill="currentColor" />
+                    </svg>
+                  </button>
+                  <span className="pagination-page">
+                    Página {totalPages > 0 ? page + 1 : 0} de {totalPages}
+                  </span>
+                  <button
+                    className="pagination-button"
+                    type="button"
+                    onClick={() => handlePageChange(page + 1)}
+                    disabled={page >= totalPages - 1}
+                    aria-label="Próxima página"
+                  >
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                      <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor" />
+                    </svg>
+                  </button>
+                  <button
+                    className="pagination-button"
+                    type="button"
+                    onClick={() => handlePageChange(totalPages - 1)}
+                    disabled={page >= totalPages - 1}
+                    aria-label="Última página"
+                  >
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                      <path d="M5.59 7.41L10.18 12l-4.59 4.59L7 18l6-6-6-6-1.41 1.41zM16 6h2v12h-2V6z" fill="currentColor" />
+                    </svg>
+                  </button>
                 </div>
               </div>
-              <div className="budgets-card">
-                <table className="budgets-table">
-                  <thead>
-                    <tr>
-                      <th>Cliente</th><th>Ação</th><th>Descrição</th><th>Data</th><th>Responsável</th><th>Sit.</th><th>#</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item) => (
-                      <tr key={item.id} className="budgets-row-clickable" onClick={() => navigate(`/Agenda/${item.agendaContatoId}`)}>
-                        <td>{item.contatoNome}</td>
-                        <td>{item.tipoAcaoNome}</td>
-                        <td>{item.descricao}</td>
-                        <td>{formatDateTime(item.data)}</td>
-                        <td>{item.responsavelNome}</td>
-                        <td onClick={(e) => e.stopPropagation()}>
-                          {item.situacaoId === 2 ? (
-                            <span className="agenda-situacao agenda-sit-concluida" title={item.comentario || 'Realizada'} />
-                          ) : new Date(item.data) < new Date() ? (
-                            <span className="agenda-situacao agenda-sit-atrasada" title="Atrasada" />
-                          ) : (
-                            <span className="agenda-situacao agenda-sit-pendente" title="Pendente" />
-                          )}
-                        </td>
-                        <td onClick={(e) => e.stopPropagation()}>
-                          {item.situacaoId !== 2 && (
-                            <button type="button" className="agenda-icon-btn" onClick={() => { setComentarioModal(item.id); setComentario('') }}>✓</button>
-                          )}
-                          <button type="button" className="agenda-icon-btn" onClick={() => excluir(item.id)}>🗑</button>
-                        </td>
-                      </tr>
-                    ))}
-                    {items.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center' }}>Nenhuma ação cadastrada.</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-            </>
+            </div>
           )}
         </div>
       </main>

@@ -1191,11 +1191,13 @@
   gap: 4px;
 }
 
-.budgets-row {
+.budgets-row,
+.budgets-row-clickable {
   cursor: pointer;
 }
 
-.budgets-row:hover {
+.budgets-row:hover,
+.budgets-row-clickable:hover {
   background: #eef5fb;
 }
 

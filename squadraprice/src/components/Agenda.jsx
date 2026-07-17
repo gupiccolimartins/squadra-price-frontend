@@ -5,7 +5,6 @@ import Header from './Header'
 import AgendaNav from './AgendaNav'
 import { apiFetch } from '../utils/api'
 
-const PAGE_SIZE = 15
 const ESTAGIO_PADRAO = '1'
 
 function getLoggedUser() {
@@ -59,6 +58,7 @@ function Agenda() {
   const [errorMessage, setErrorMessage] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
 
@@ -80,14 +80,14 @@ function Agenda() {
 
   const abortRef = useRef(null)
 
-  const loadContatos = useCallback(async (currentPage, currentFilters) => {
+  const loadContatos = useCallback(async (currentPage, currentFilters, size = pageSize) => {
     abortRef.current?.abort()
     abortRef.current = new AbortController()
     try {
       setIsLoading(true)
       const params = new URLSearchParams({
         page: String(currentPage),
-        size: String(PAGE_SIZE),
+        size: String(size),
         ordenacao: currentFilters.ordenacao || 'Ultimos',
       })
       if (currentFilters.orcamentoId) params.set('orcamentoId', currentFilters.orcamentoId)
@@ -111,7 +111,7 @@ function Agenda() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [pageSize])
 
   useEffect(() => {
     apiFetch('/api/agenda/estagios')
@@ -131,9 +131,9 @@ function Agenda() {
   }, [])
 
   useEffect(() => {
-    loadContatos(page, appliedFilters)
+    loadContatos(page, appliedFilters, pageSize)
     return () => abortRef.current?.abort()
-  }, [page, appliedFilters, loadContatos])
+  }, [page, pageSize, appliedFilters, loadContatos])
 
   useEffect(() => {
     if (!form.ufId) {
@@ -155,6 +155,17 @@ function Agenda() {
     e.preventDefault()
     setPage(0)
     setAppliedFilters(filters)
+  }
+
+  const handlePageSizeChange = (newSize) => {
+    setPageSize(newSize)
+    setPage(0)
+  }
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 0 && newPage < totalPages) {
+      setPage(newPage)
+    }
   }
 
   const openCreateModal = () => {
@@ -305,9 +316,6 @@ function Agenda() {
     }
   }
 
-  const startItem = totalElements === 0 ? 0 : page * PAGE_SIZE + 1
-  const endItem = Math.min((page + 1) * PAGE_SIZE, totalElements)
-
   return (
     <div className="app budgets-page">
       <Header />
@@ -374,89 +382,146 @@ function Agenda() {
           {isLoading && <p className="budgets-loading">Carregando...</p>}
 
           {!isLoading && (
-            <>
-              <div className="budgets-pagination">
-                <span className="budgets-pagination-info">
-                  Página {totalPages === 0 ? 0 : page + 1} de {totalPages} | Mostrando: {contatos.length} de {totalElements} Registros
-                </span>
-                <div className="budgets-pagination-controls">
-                  <button type="button" className="budgets-pagination-button" disabled={page <= 0} onClick={() => setPage((p) => p - 1)}>Anterior</button>
-                  <button type="button" className="budgets-pagination-button" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>Próxima</button>
+            <div className="budgets-card">
+              <table className="budgets-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Contato</th>
+                    <th>Vendedor</th>
+                    <th>Faturamento Ponderado</th>
+                    <th>Orçamento</th>
+                    <th>Estágio</th>
+                    <th>Situação</th>
+                    <th>#</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contatos.length === 0 && (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center' }}>Nenhum contato cadastrado.</td>
+                    </tr>
+                  )}
+                  {contatos.map((item) => {
+                    const sit = situacaoInfo(item)
+                    return (
+                      <tr key={item.id} className="budgets-row-clickable" onClick={() => navigate(`/Agenda/${item.id}`)}>
+                        <td>{item.nome}</td>
+                        <td>
+                          {item.telefone}
+                          {item.email ? <><br />{item.email}</> : null}
+                        </td>
+                        <td>{item.vendedorNome}</td>
+                        <td>{formatCurrency(item.faturamentoPonderado)}</td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          {item.orcamentoId > 0 ? (
+                            <Link to={`/Orcamentos/${item.orcamentoId}`} target="_blank" rel="noreferrer">{item.orcamentoId}</Link>
+                          ) : (
+                            '0'
+                          )}
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <div className="agenda-estagio-cell">
+                            <span className="agenda-estagio-nome">{item.estagioNome}</span>
+                            <label className="agenda-estagio-edit" title="Alterar estágio">
+                              <span className="agenda-estagio-pencil" aria-hidden="true">✎</span>
+                              <span className="agenda-estagio-caret" aria-hidden="true">▾</span>
+                              <select
+                                className="agenda-estagio-select"
+                                value={String(item.estagioId || '')}
+                                onChange={(e) => alterarEstagio(item.id, e.target.value, e)}
+                                aria-label={`Alterar estágio de ${item.nome || 'contato'}`}
+                              >
+                                {estagios.map((estagio) => (
+                                  <option key={estagio.id} value={String(estagio.id)}>{estagio.nome}</option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                        </td>
+                        <td>
+                          {sit && <span className={`agenda-situacao ${sit.cls}`} title={sit.title} />}
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <button type="button" className="agenda-icon-btn" title="Editar contato" onClick={(e) => openEditModal(item.id, e)}>✎</button>
+                          <button type="button" className="agenda-icon-btn" title="Excluir" onClick={(e) => excluirContato(item.id, e)}>🗑</button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+
+              <div className="pagination-container">
+                <div className="pagination-info">
+                  <span>Itens por página:</span>
+                  <select
+                    className="pagination-select"
+                    value={pageSize}
+                    onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span className="pagination-total">
+                    {totalElements > 0
+                      ? `${page * pageSize + 1}-${Math.min((page + 1) * pageSize, totalElements)} de ${totalElements}`
+                      : '0 registros'}
+                  </span>
+                </div>
+                <div className="pagination-controls">
+                  <button
+                    className="pagination-button"
+                    type="button"
+                    onClick={() => handlePageChange(0)}
+                    disabled={page === 0}
+                    aria-label="Primeira página"
+                  >
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                      <path d="M18.41 16.59L13.82 12l4.59-4.59L17 6l-6 6 6 6 1.41-1.41zM6 6h2v12H6V6z" fill="currentColor" />
+                    </svg>
+                  </button>
+                  <button
+                    className="pagination-button"
+                    type="button"
+                    onClick={() => handlePageChange(page - 1)}
+                    disabled={page === 0}
+                    aria-label="Página anterior"
+                  >
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                      <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12l4.58-4.59z" fill="currentColor" />
+                    </svg>
+                  </button>
+                  <span className="pagination-page">
+                    Página {totalPages > 0 ? page + 1 : 0} de {totalPages}
+                  </span>
+                  <button
+                    className="pagination-button"
+                    type="button"
+                    onClick={() => handlePageChange(page + 1)}
+                    disabled={page >= totalPages - 1}
+                    aria-label="Próxima página"
+                  >
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                      <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor" />
+                    </svg>
+                  </button>
+                  <button
+                    className="pagination-button"
+                    type="button"
+                    onClick={() => handlePageChange(totalPages - 1)}
+                    disabled={page >= totalPages - 1}
+                    aria-label="Última página"
+                  >
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                      <path d="M5.59 7.41L10.18 12l-4.59 4.59L7 18l6-6-6-6-1.41 1.41zM16 6h2v12h-2V6z" fill="currentColor" />
+                    </svg>
+                  </button>
                 </div>
               </div>
-
-              <div className="budgets-card">
-                <table className="budgets-table">
-                  <thead>
-                    <tr>
-                      <th>Nome</th>
-                      <th>Contato</th>
-                      <th>Vendedor</th>
-                      <th>Faturamento Ponderado</th>
-                      <th>Orçamento</th>
-                      <th>Estágio</th>
-                      <th>Situação</th>
-                      <th>#</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {contatos.length === 0 && (
-                      <tr>
-                        <td colSpan={8} style={{ textAlign: 'center' }}>Nenhum contato cadastrado.</td>
-                      </tr>
-                    )}
-                    {contatos.map((item) => {
-                      const sit = situacaoInfo(item)
-                      return (
-                        <tr key={item.id} className="budgets-row-clickable" onClick={() => navigate(`/Agenda/${item.id}`)}>
-                          <td>{item.nome}</td>
-                          <td>
-                            {item.telefone}
-                            {item.email ? <><br />{item.email}</> : null}
-                          </td>
-                          <td>{item.vendedorNome}</td>
-                          <td>{formatCurrency(item.faturamentoPonderado)}</td>
-                          <td onClick={(e) => e.stopPropagation()}>
-                            {item.orcamentoId > 0 ? (
-                              <Link to={`/Orcamentos/${item.orcamentoId}`} target="_blank" rel="noreferrer">{item.orcamentoId}</Link>
-                            ) : (
-                              '0'
-                            )}
-                          </td>
-                          <td onClick={(e) => e.stopPropagation()}>
-                            <div className="agenda-estagio-cell">
-                              <span className="agenda-estagio-nome">{item.estagioNome}</span>
-                              <label className="agenda-estagio-edit" title="Alterar estágio">
-                                <span className="agenda-estagio-pencil" aria-hidden="true">✎</span>
-                                <span className="agenda-estagio-caret" aria-hidden="true">▾</span>
-                                <select
-                                  className="agenda-estagio-select"
-                                  value={String(item.estagioId || '')}
-                                  onChange={(e) => alterarEstagio(item.id, e.target.value, e)}
-                                  aria-label={`Alterar estágio de ${item.nome || 'contato'}`}
-                                >
-                                  {estagios.map((estagio) => (
-                                    <option key={estagio.id} value={String(estagio.id)}>{estagio.nome}</option>
-                                  ))}
-                                </select>
-                              </label>
-                            </div>
-                          </td>
-                          <td>
-                            {sit && <span className={`agenda-situacao ${sit.cls}`} title={sit.title} />}
-                          </td>
-                          <td onClick={(e) => e.stopPropagation()}>
-                            <button type="button" className="agenda-icon-btn" title="Editar contato" onClick={(e) => openEditModal(item.id, e)}>✎</button>
-                            <button type="button" className="agenda-icon-btn" title="Excluir" onClick={(e) => excluirContato(item.id, e)}>🗑</button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <p className="budgets-subtitle" style={{ marginTop: 8 }}>Exibindo {startItem}-{endItem}</p>
-            </>
+            </div>
           )}
         </div>
       </main>
