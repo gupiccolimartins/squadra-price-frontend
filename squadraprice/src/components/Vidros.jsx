@@ -5,8 +5,17 @@ import Header from './Header'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 const DEFAULT_PAGE_SIZE = 10
 
+const DEFAULT_CREATE_FORM = {
+  name: '',
+  price: '',
+  statusId: '1',
+  ordenacaoId: '1',
+  fornecedorId: '',
+}
+
 function Vidros() {
   const [glasses, setGlasses] = useState([])
+  const [suppliers, setSuppliers] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [totalElements, setTotalElements] = useState(0)
@@ -19,6 +28,11 @@ function Vidros() {
     name: '',
     status: 'Ativo',
   })
+  const [reloadToken, setReloadToken] = useState(0)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isCreateSaving, setIsCreateSaving] = useState(false)
+  const [createErrorMessage, setCreateErrorMessage] = useState('')
+  const [createForm, setCreateForm] = useState(DEFAULT_CREATE_FORM)
 
   useEffect(() => {
     let isMounted = true
@@ -69,7 +83,103 @@ function Vidros() {
     return () => {
       isMounted = false
     }
-  }, [filters, currentPage, pageSize])
+  }, [filters, currentPage, pageSize, reloadToken])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadSuppliers = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/fornecedores?page=0&size=500`)
+        if (!response.ok) {
+          throw new Error(`Falha ao buscar fornecedores (${response.status})`)
+        }
+
+        const data = await response.json()
+        if (isMounted) {
+          setSuppliers(Array.isArray(data.content) ? data.content : [])
+        }
+      } catch (_error) {
+        if (isMounted) {
+          setSuppliers([])
+        }
+      }
+    }
+
+    loadSuppliers()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const resetCreateForm = () => {
+    setCreateForm(DEFAULT_CREATE_FORM)
+    setCreateErrorMessage('')
+  }
+
+  const handleOpenCreateModal = () => {
+    resetCreateForm()
+    setIsCreateModalOpen(true)
+  }
+
+  const handleCloseCreateModal = () => {
+    setIsCreateModalOpen(false)
+    resetCreateForm()
+  }
+
+  const handleCreateChange = (field) => (event) => {
+    setCreateForm((prev) => ({
+      ...prev,
+      [field]: event.target.value,
+    }))
+    setCreateErrorMessage('')
+  }
+
+  const handleCreateSubmit = async (event) => {
+    event.preventDefault()
+    const parsedPrice = Number(String(createForm.price).replace(',', '.'))
+
+    if (!createForm.name.trim()) {
+      setCreateErrorMessage('Informe o nome do vidro.')
+      return
+    }
+    if (!Number.isFinite(parsedPrice)) {
+      setCreateErrorMessage('Informe um preco valido.')
+      return
+    }
+
+    setIsCreateSaving(true)
+    setCreateErrorMessage('')
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/vidros`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: createForm.name.trim(),
+          price: parsedPrice,
+          statusId: Number(createForm.statusId),
+          ordenacaoId: Number(createForm.ordenacaoId),
+          fornecedorId: createForm.fornecedorId ? Number(createForm.fornecedorId) : null,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Falha ao criar vidro (${response.status})`)
+      }
+
+      handleCloseCreateModal()
+      setCurrentPage(0)
+      setReloadToken((prev) => prev + 1)
+    } catch (error) {
+      setCreateErrorMessage(error instanceof Error ? error.message : 'Erro ao criar vidro')
+    } finally {
+      setIsCreateSaving(false)
+    }
+  }
 
   const handleSearch = () => {
     setCurrentPage(0)
@@ -96,8 +206,12 @@ function Vidros() {
       <main className="glass-container">
         <header className="glass-header">
           <div>
-            <h1>Vidros</h1>
-            <span className="glass-subtitle">Criar Vidro</span>
+            <h1>
+              Vidros |{' '}
+              <button className="users-create-link" type="button" onClick={handleOpenCreateModal}>
+                Criar Vidro
+              </button>
+            </h1>
           </div>
         </header>
 
@@ -278,6 +392,100 @@ function Vidros() {
           </div>
         </section>
       </main>
+
+      {isCreateModalOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={handleCloseCreateModal}>
+          <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-header">
+              <div>
+                <h2>Criar Vidro</h2>
+              </div>
+              <button className="primary-button" type="button" onClick={handleCloseCreateModal}>
+                Voltar
+              </button>
+            </header>
+
+            <form className="modal-form" onSubmit={handleCreateSubmit}>
+              <div className="modal-form-group modal-form-group-full">
+                <label htmlFor="create-vidro-name">Nome</label>
+                <input
+                  id="create-vidro-name"
+                  className="modal-input"
+                  type="text"
+                  value={createForm.name}
+                  onChange={handleCreateChange('name')}
+                  placeholder="Nome do Vidro"
+                  required
+                />
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="create-vidro-price">Preco</label>
+                <input
+                  id="create-vidro-price"
+                  className="modal-input"
+                  type="text"
+                  value={createForm.price}
+                  onChange={handleCreateChange('price')}
+                  placeholder="Preco"
+                  required
+                />
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="create-vidro-status">Status</label>
+                <select
+                  id="create-vidro-status"
+                  className="modal-select"
+                  value={createForm.statusId}
+                  onChange={handleCreateChange('statusId')}
+                >
+                  <option value="1">Ativo</option>
+                  <option value="2">Inativo</option>
+                </select>
+              </div>
+
+              <div className="modal-form-group">
+                <label htmlFor="create-vidro-order">Ordenacao</label>
+                <select
+                  id="create-vidro-order"
+                  className="modal-select"
+                  value={createForm.ordenacaoId}
+                  onChange={handleCreateChange('ordenacaoId')}
+                >
+                  <option value="1">Prioritario</option>
+                  <option value="2">Nao Prioritario</option>
+                </select>
+              </div>
+
+              <div className="modal-form-group modal-form-group-full">
+                <label htmlFor="create-vidro-supplier">Fornecedor</label>
+                <select
+                  id="create-vidro-supplier"
+                  className="modal-select"
+                  value={createForm.fornecedorId}
+                  onChange={handleCreateChange('fornecedorId')}
+                >
+                  <option value="">Nao consta</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {createErrorMessage && <p className="products-create-error">{createErrorMessage}</p>}
+
+              <div className="products-create-actions">
+                <button className="primary-button" type="submit" disabled={isCreateSaving}>
+                  {isCreateSaving ? 'Criando...' : 'Criar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

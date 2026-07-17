@@ -1462,7 +1462,7 @@ function Produtos() {
           <div className="modal-content modal-large">
             <header className="modal-header">
               <div>
-                <h2>Vincular Insumo | Listar Produtos</h2>
+                <h2>Vincular Insumo</h2>
                 <p className="modal-subtitle">
                   Produto: {selectedProduct?.name || 'Produto selecionado'}
                 </p>
