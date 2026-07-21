@@ -1,7 +1,18 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import '../App.css'
 import Header from './Header'
 import { apiFetch } from '../utils/api'
+import { resolveProductImageSrc } from '../utils/productImage'
+
+async function readApiErrorMessage(response, fallback) {
+  try {
+    const errorBody = await response.json()
+    if (errorBody?.message) return errorBody.message
+  } catch (_) {
+    // ignore non-JSON bodies
+  }
+  return fallback
+}
 
 function Produtos() {
   const [products, setProducts] = useState([])
@@ -67,6 +78,7 @@ function Produtos() {
     parentLineId: '1',
     parentProductId: '0',
     file: null,
+    foto: '',
   })
 
   // Calculate modal states
@@ -343,6 +355,9 @@ function Produtos() {
       formData.append('minWidth', createForm.minWidth)
       formData.append('maxWidth', createForm.maxWidth)
       if (createForm.file) {
+        if (createForm.file.size >= 1_000_000) {
+          throw new Error('Imagem do produto deve ter menos de 1 MB.')
+        }
         formData.append('file', createForm.file)
       }
 
@@ -351,7 +366,7 @@ function Produtos() {
         body: formData,
       })
       if (!response.ok) {
-        throw new Error(`Falha ao criar produto (${response.status})`)
+        throw new Error(await readApiErrorMessage(response, `Falha ao criar produto (${response.status})`))
       }
 
       handleCloseCreateModal()
@@ -580,6 +595,7 @@ function Produtos() {
         parentLineId: String(detail.parentLineId ?? '1'),
         parentProductId: String(detail.parentProductId ?? '0'),
         file: null,
+        foto: detail.foto ?? '',
       }
       setEditForm(form)
       setEditingProduct(detail)
@@ -633,6 +649,28 @@ function Produtos() {
     editForm.categoryId === '3' || editForm.categoryId === '4'
   const shouldEditDisableAccessory = editForm.categoryId === '1'
 
+  const createFilePreviewUrl = useMemo(() => {
+    if (!createForm.file) return null
+    return URL.createObjectURL(createForm.file)
+  }, [createForm.file])
+
+  const editFilePreviewUrl = useMemo(() => {
+    if (!editForm.file) return null
+    return URL.createObjectURL(editForm.file)
+  }, [editForm.file])
+
+  useEffect(() => {
+    return () => {
+      if (createFilePreviewUrl) URL.revokeObjectURL(createFilePreviewUrl)
+    }
+  }, [createFilePreviewUrl])
+
+  useEffect(() => {
+    return () => {
+      if (editFilePreviewUrl) URL.revokeObjectURL(editFilePreviewUrl)
+    }
+  }, [editFilePreviewUrl])
+
   const handleEditSubmit = async (event) => {
     event.preventDefault()
     if (!editingProduct?.id) return
@@ -653,13 +691,20 @@ function Produtos() {
       formData.append('maxHeight', editForm.maxHeight)
       formData.append('minWidth', editForm.minWidth)
       formData.append('maxWidth', editForm.maxWidth)
-      if (editForm.file) formData.append('file', editForm.file)
+      if (editForm.file) {
+        if (editForm.file.size >= 1_000_000) {
+          throw new Error('Imagem do produto deve ter menos de 1 MB.')
+        }
+        formData.append('file', editForm.file)
+      }
 
       const response = await apiFetch(`/api/products/${editingProduct.id}`, {
         method: 'PUT',
         body: formData,
       })
-      if (!response.ok) throw new Error(`Falha ao editar produto (${response.status})`)
+      if (!response.ok) {
+        throw new Error(await readApiErrorMessage(response, `Falha ao editar produto (${response.status})`))
+      }
 
       handleCloseEditModal()
       fetchProducts(
@@ -1439,7 +1484,14 @@ function Produtos() {
 
               <div className="modal-form-group modal-form-group-full">
                 <label htmlFor="create-product-file">Foto do produto</label>
-                <input id="create-product-file" type="file" onChange={handleCreateFileChange} />
+                <input id="create-product-file" type="file" accept="image/*" onChange={handleCreateFileChange} />
+                {createFilePreviewUrl && (
+                  <img
+                    src={createFilePreviewUrl}
+                    alt="Pré-visualização"
+                    style={{ marginTop: '0.75rem', maxWidth: '160px', maxHeight: '160px', objectFit: 'contain' }}
+                  />
+                )}
               </div>
 
               {(createOptionsError || createErrorMessage) && (
@@ -1836,7 +1888,14 @@ function Produtos() {
 
               <div className="modal-form-group modal-form-group-full">
                 <label htmlFor="edit-product-file">Foto do produto</label>
-                <input id="edit-product-file" type="file" onChange={handleEditFileChange} />
+                <input id="edit-product-file" type="file" accept="image/*" onChange={handleEditFileChange} />
+                {(editFilePreviewUrl || resolveProductImageSrc(editForm.foto)) && (
+                  <img
+                    src={editFilePreviewUrl || resolveProductImageSrc(editForm.foto)}
+                    alt="Foto do produto"
+                    style={{ marginTop: '0.75rem', maxWidth: '160px', maxHeight: '160px', objectFit: 'contain' }}
+                  />
+                )}
               </div>
 
               {editErrorMessage && (

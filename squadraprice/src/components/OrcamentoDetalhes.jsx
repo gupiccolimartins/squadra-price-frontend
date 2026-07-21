@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import '../App.css'
 import { apiFetch } from '../utils/api'
+import { resolveProductImageSrc } from '../utils/productImage'
 import Header from './Header'
 
 
@@ -79,21 +80,6 @@ const resolveBudgetText = (source, keys) => {
     }
   }
   return ''
-}
-
-const resolveImageSrc = (foto) => {
-  if (!foto) {
-    return ''
-  }
-  if (foto.startsWith('http') || foto.startsWith('data:')) {
-    return foto
-  }
-  const baseUrl = import.meta.env.BASE_URL || '/'
-  const normalized = foto.replace(/^\/+/, '')
-  if (normalized.startsWith('img/')) {
-    return `${baseUrl}${normalized}`
-  }
-  return `${baseUrl}img/${normalized}`
 }
 
 function OrcamentoDetalhes() {
@@ -1794,7 +1780,7 @@ function OrcamentoDetalhes() {
                       const productKey = String(
                         produto.id || produto.produtoId || produto.codigoPeca || index
                       )
-                      const productImage = resolveImageSrc(produto.foto)
+                      const productImage = resolveProductImageSrc(produto.foto)
                       const isImageAvailable = productImage && !brokenImages[productKey]
                       const unitPrice = produto.valorUnitario ?? produto.valorProdutoUnitario
                       const totalPrice = produto.valorTotal ?? produto.valorProdutoTotal
@@ -2133,15 +2119,32 @@ function OrcamentoDetalhes() {
                                     acessorio.valorUnitario ?? acessorio.valorProdutoUnitario
                                   const accessoryTotal =
                                     acessorio.valorTotal ?? acessorio.valorProdutoTotal
+                                  const accessoryKey = `${produto.id}-${acessorio.id || acessorio.acessorioId}`
+                                  const accessoryImage = resolveProductImageSrc(acessorio.foto)
+                                  const isAccessoryImageAvailable =
+                                    accessoryImage && !brokenImages[`acessorio-${accessoryKey}`]
                                   return (
                                     <div
                                       className="budget-accessory-card"
-                                      key={`${produto.id}-${acessorio.id || acessorio.acessorioId}`}
+                                      key={accessoryKey}
                                     >
                                       <div className="budget-accessory-image">
-                                        <div className="budget-product-image-placeholder">
-                                          Sem imagem
-                                        </div>
+                                        {isAccessoryImageAvailable ? (
+                                          <img
+                                            src={accessoryImage}
+                                            alt={acessorio.nome || 'Acessório'}
+                                            onError={() =>
+                                              setBrokenImages((prev) => ({
+                                                ...prev,
+                                                [`acessorio-${accessoryKey}`]: true,
+                                              }))
+                                            }
+                                          />
+                                        ) : (
+                                          <div className="budget-product-image-placeholder">
+                                            Sem imagem
+                                          </div>
+                                        )}
                                       </div>
                                       <div className="budget-accessory-main">
                                         <div className="budget-accessory-title-row">

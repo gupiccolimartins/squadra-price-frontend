@@ -3,15 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import '../App.css'
 import Header from './Header'
 import { apiFetch } from '../utils/api'
-
-const resolveImageSrc = (foto) => {
-  if (!foto) return ''
-  if (foto.startsWith('http') || foto.startsWith('data:')) return foto
-  const baseUrl = import.meta.env.BASE_URL || '/'
-  const normalized = foto.replace(/^\/+/, '')
-  if (normalized.startsWith('img/')) return `${baseUrl}${normalized}`
-  return `${baseUrl}img/${normalized}`
-}
+import { resolveProductImageSrc } from '../utils/productImage'
 
 const formatArea = (value) => {
   const parsed = Number.parseFloat(value)
@@ -111,7 +103,7 @@ function OrcamentoMemorial() {
         {/* Produtos */}
         {produtos.map((produto) => {
           const prodKey = String(produto.id || produto.produtoId || produto.codigoPeca)
-          const imgSrc = resolveImageSrc(produto.foto)
+          const imgSrc = resolveProductImageSrc(produto.foto)
           const imgOk = imgSrc && !brokenImages[`prod-${prodKey}`]
           const acessorios = Array.isArray(produto.acessorios) ? produto.acessorios : []
 
@@ -165,7 +157,7 @@ function OrcamentoMemorial() {
                   {/* Acessórios */}
                   {acessorios.map((ac) => {
                     const acKey = String(ac.id || ac.acessorioId)
-                    const acImgSrc = resolveImageSrc(ac.foto)
+                    const acImgSrc = resolveProductImageSrc(ac.foto)
                     const acImgOk = acImgSrc && !brokenImages[`ac-${acKey}`]
 
                     return (

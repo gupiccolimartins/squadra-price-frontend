@@ -2,9 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import '../App.css'
 import Header from './Header'
-import { apiFetch, API_BASE_URL } from '../utils/api'
-
-const IMG_BASE_URL = import.meta.env.VITE_IMG_BASE_URL || API_BASE_URL
+import { apiFetch } from '../utils/api'
+import { resolveProductImageSrc } from '../utils/productImage'
 
 const formatMoney = (value) => {
   const parsed = Number.parseFloat(value)
@@ -95,7 +94,9 @@ function OrcamentoPrint() {
         </div>
 
         {/* ── Produtos ── */}
-        {produtos.map((p) => (
+        {produtos.map((p) => {
+          const productImg = resolveProductImageSrc(p.foto)
+          return (
           <div key={p.id} style={{ marginBottom: '1rem', border: '1px solid #aaa' }}>
             {/* Cabeçalho do produto */}
             <div style={{ background: '#eaeaea', padding: '6px 8px', fontWeight: 'bold', borderBottom: '1px solid #aaa', fontSize: '0.875rem' }}>
@@ -107,8 +108,8 @@ function OrcamentoPrint() {
               <tbody>
                 <tr>
                   <td style={{ width: '120px', verticalAlign: 'top', padding: '8px' }}>
-                    {p.foto
-                      ? <img src={`${IMG_BASE_URL}/content/img/${p.foto}`} width="110" height="110" alt={p.nome} style={{ objectFit: 'contain' }} />
+                    {productImg
+                      ? <img src={productImg} width="110" height="110" alt={p.nome} style={{ objectFit: 'contain' }} />
                       : <div style={{ width: 110, height: 110, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', color: '#999' }}>Sem foto</div>
                     }
                   </td>
@@ -132,15 +133,17 @@ function OrcamentoPrint() {
                 )}
 
                 {/* Acessórios do produto */}
-                {Array.isArray(p.acessorios) && p.acessorios.map((a) => (
+                {Array.isArray(p.acessorios) && p.acessorios.map((a) => {
+                  const accessoryImg = resolveProductImageSrc(a.foto)
+                  return (
                   <>
                     <tr key={`sep-${a.id}`}>
                       <td colSpan="3" style={{ padding: 0 }}><hr style={{ margin: 0, borderColor: '#ccc' }} /></td>
                     </tr>
                     <tr key={a.id}>
                       <td style={{ padding: '8px', verticalAlign: 'top' }}>
-                        {a.foto
-                          ? <img src={`${IMG_BASE_URL}/content/img/${a.foto}`} width="110" height="110" alt={a.nome} style={{ objectFit: 'contain' }} />
+                        {accessoryImg
+                          ? <img src={accessoryImg} width="110" height="110" alt={a.nome} style={{ objectFit: 'contain' }} />
                           : <div style={{ width: 110, height: 110, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', color: '#999' }}>Sem foto</div>
                         }
                       </td>
@@ -161,11 +164,13 @@ function OrcamentoPrint() {
                       </tr>
                     )}
                   </>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
-        ))}
+          )
+        })}
 
         {/* ── Totais ── */}
         <table width="100%" cellSpacing="0" cellPadding="4" style={{ marginTop: '0.5rem' }}>
