@@ -12,6 +12,6 @@ export function resolveProductImageSrc(foto) {
   if (/^(https?:|data:)/i.test(value)) {
     return value
   }
-  const base = (import.meta.env.VITE_IMG_BASE_URL || API_BASE_URL).replace(/\/$/, '')
+  const base = (import.meta.env.VITE_IMG_BASE_URL ?? API_BASE_URL).replace(/\/$/, '')
   return `${base}/content/img/${value.replace(/^\/+/, '')}`
 }
