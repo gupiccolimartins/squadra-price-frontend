@@ -116,11 +116,11 @@ function Header() {
       <header className="topbar">
         <div className="topbar-content">
           <div className="brand">
-            <span className="brand-mark">S</span>
-            <div className="brand-text">
-              <strong>SQUADRA</strong>
-              <span>esquadrias de pvc</span>
-            </div>
+            <img
+              className="brand-logo"
+              src="/img/logo_branco.png"
+              alt="Squadra esquadrias de pvc"
+            />
           </div>
 
           <div className="search">

@@ -23,32 +23,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
-.brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #0b5f8f;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
-
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-  font-size: 12px;
-  text-transform: lowercase;
-}
-
-.brand-text strong {
-  font-size: 16px;
-  letter-spacing: 1px;
+.brand-logo {
+  display: block;
+  height: 40px;
+  width: auto;
+  object-fit: contain;
 }
 
 .search {
