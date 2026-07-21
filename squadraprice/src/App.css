@@ -583,10 +583,13 @@
   padding: 0;
 }
 
+/* Não usar display:flex no <td> — isso remove table-cell e desalinha as linhas */
 .products-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
+  white-space: nowrap;
+}
+
+.products-actions .icon-button + .icon-button {
+  margin-left: 6px;
 }
 
 .modal-overlay {
