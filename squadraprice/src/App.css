@@ -130,9 +130,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.5px;
+}
+
+.panel-icon svg {
+  flex-shrink: 0;
 }
 
 .panel-item:hover .panel-icon {

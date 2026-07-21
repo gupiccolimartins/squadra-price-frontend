@@ -1,6 +1,20 @@
 import '../App.css'
 import Header from './Header'
 import { Link } from 'react-router-dom'
+import {
+  Users,
+  Settings,
+  MapPinned,
+  FilePenLine,
+  Truck,
+  AppWindow,
+  Boxes,
+  Layers,
+  Palette,
+  FilePlus2,
+  ClipboardList,
+  CalendarDays,
+} from 'lucide-react'
 
 function Home() {
   const user = (() => {
@@ -19,21 +33,21 @@ function Home() {
     sections.push({
       title: 'Administrativo Geral',
       items: [
-        { label: 'Usuários', icon: 'US', to: '/Usuarios' },
-        { label: 'Constantes', icon: 'CO', to: '/Constantes' },
-        { label: 'Cidade / Estado', icon: 'CE', to: '/Cidades' },
-        { label: 'Texto de Orcamento', icon: 'TO', to: '/ModeloOrcamento' },
-        { label: 'Fornecedores', icon: 'FO', to: '/Fornecedores' },
+        { label: 'Usuários', icon: Users, to: '/Usuarios' },
+        { label: 'Constantes', icon: Settings, to: '/Constantes' },
+        { label: 'Cidade / Estado', icon: MapPinned, to: '/Cidades' },
+        { label: 'Texto de Orcamento', icon: FilePenLine, to: '/ModeloOrcamento' },
+        { label: 'Fornecedores', icon: Truck, to: '/Fornecedores' },
       ],
     })
 
     sections.push({
       title: 'Produtos e Insumos',
       items: [
-        { label: 'Produtos', icon: 'PR', to: '/Produtos' },
-        { label: 'Insumos', icon: 'IN', to: '/Insumos' },
-        { label: 'Vidros', icon: 'VI', to: '/Vidros' },
-        { label: 'Cores Alumínio', icon: 'CA', to: '/CoresAluminio' },
+        { label: 'Produtos', icon: AppWindow, to: '/Produtos' },
+        { label: 'Insumos', icon: Boxes, to: '/Insumos' },
+        { label: 'Vidros', icon: Layers, to: '/Vidros' },
+        { label: 'Cores Alumínio', icon: Palette, to: '/CoresAluminio' },
       ],
     })
   }
@@ -41,9 +55,9 @@ function Home() {
   sections.push({
     title: 'Operacional',
     items: [
-      { label: 'Criar Orcamento', icon: 'CO', to: '/CriarOrcamento' },
-      { label: 'Listar Orcamentos', icon: 'LO', to: '/Orcamentos' },
-      { label: 'Agenda de Representantes', icon: 'AR', to: '/Agenda' },
+      { label: 'Criar Orcamento', icon: FilePlus2, to: '/CriarOrcamento' },
+      { label: 'Listar Orcamentos', icon: ClipboardList, to: '/Orcamentos' },
+      { label: 'Agenda de Representantes', icon: CalendarDays, to: '/Agenda' },
     ],
   })
 
@@ -56,19 +70,27 @@ function Home() {
           <section className="panel" key={section.title}>
             <h2>{section.title}</h2>
             <div className="panel-items">
-              {section.items.map((item) => (
-                item.to ? (
-                  <Link className="panel-item" key={item.label} to={item.to}>
-                    <span className="panel-icon">{item.icon}</span>
+              {section.items.map((item) => {
+                const Icon = item.icon
+                const content = (
+                  <>
+                    <span className="panel-icon" aria-hidden="true">
+                      <Icon size={26} strokeWidth={1.75} />
+                    </span>
                     <span>{item.label}</span>
+                  </>
+                )
+
+                return item.to ? (
+                  <Link className="panel-item" key={item.label} to={item.to}>
+                    {content}
                   </Link>
                 ) : (
                   <button className="panel-item" type="button" key={item.label}>
-                    <span className="panel-icon">{item.icon}</span>
-                    <span>{item.label}</span>
+                    {content}
                   </button>
                 )
-              ))}
+              })}
             </div>
           </section>
         ))}
