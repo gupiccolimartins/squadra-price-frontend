@@ -45,11 +45,11 @@ function Login() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-brand">
-          <span className="brand-mark">S</span>
-          <div className="brand-text">
-            <strong>SQUADRA</strong>
-            <span>esquadrias de pvc</span>
-          </div>
+          <img
+            className="login-brand-logo"
+            src="/img/Logo%20Squadra%20Entrada.png"
+            alt="Squadra Sistema Price"
+          />
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>

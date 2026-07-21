@@ -179,14 +179,6 @@ function Header() {
                 />
               </svg>
             </button>
-            <button type="button" className="icon-button" aria-label="Menu">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M4 6h7v7H4V6zm9 0h7v7h-7V6zM4 15h7v7H4v-7zm9 0h7v7h-7v-7z"
-                  fill="currentColor"
-                />
-              </svg>
-            </button>
 
             <div className="user-menu-wrapper" ref={menuRef}>
               <button
