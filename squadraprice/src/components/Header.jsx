@@ -98,13 +98,13 @@ function Header() {
         setSenhaErro(data?.message || 'Erro ao trocar senha')
         return
       }
-      setSenhaSucesso('Senha alterada com sucesso')
+      setSenhaSucesso('Senha alterada com sucesso. Faca login novamente.')
       setSenhaAtual('')
       setNovaSenha('')
       setConfirmarSenha('')
       setTimeout(() => {
-        setShowSenhaModal(false)
-        setSenhaSucesso('')
+        clearAuthSession()
+        navigate('/Login')
       }, 1500)
     } catch {
       setSenhaErro('Erro ao conectar com o servidor')
