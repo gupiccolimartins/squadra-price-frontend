@@ -1,5 +1,20 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
+let redirectingToLogin = false
+
+export function clearAuthSession() {
+  localStorage.removeItem('squadra_token')
+  localStorage.removeItem('squadra_user')
+}
+
+export function redirectToLogin() {
+  if (redirectingToLogin) return
+  if (window.location.pathname === '/Login') return
+  redirectingToLogin = true
+  clearAuthSession()
+  window.location.href = '/Login'
+}
+
 export function authHeaders() {
   const token = localStorage.getItem('squadra_token')
   return {
@@ -18,12 +33,11 @@ export async function apiFetch(path, options = {}) {
     ...options,
     headers: { ...defaultHeaders, ...(options.headers || {}) },
   })
+
+  // Token ausente, inválido ou expirado — não tratar 403 genérico (ex.: falta de permissão admin)
   if (response.status === 401) {
-    localStorage.removeItem('squadra_token')
-    localStorage.removeItem('squadra_user')
-    if (window.location.pathname !== '/Login') {
-      window.location.href = '/Login'
-    }
+    redirectToLogin()
   }
+
   return response
 }

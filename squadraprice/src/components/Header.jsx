@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiFetch } from '../utils/api'
+import { apiFetch, clearAuthSession } from '../utils/api'
 
 function Header() {
   const navigate = useNavigate()
@@ -70,8 +70,7 @@ function Header() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('squadra_token')
-    localStorage.removeItem('squadra_user')
+    clearAuthSession()
     navigate('/Login')
   }
 
