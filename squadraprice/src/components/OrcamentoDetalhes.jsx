@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import '../App.css'
 import { apiFetch } from '../utils/api'
 import { resolveProductImageSrc } from '../utils/productImage'
@@ -7,19 +7,21 @@ import Header from './Header'
 
 
 const fallbackBudget = (id) => ({
-  id,
-  cliente: 'Cliente não informado',
-  telefone: '(11) 99999-9999',
-  email: 'cliente@squadra.com',
-  obra: 'Obra sem descrição',
-  local: 'Local não informado',
-  status: 'Em elaboração',
-  usuario: 'Usuário',
+  id: id || '',
+  cliente: '',
+  telefone: '',
+  email: '',
+  obra: '',
+  local: '',
+  status: '',
+  usuario: '',
   usuarioTelefone: '',
-  representante: 'Representante',
-  criadoEm: '01/01/2026 09:00',
-  atualizadoEm: '01/01/2026 09:00',
-  versao: '1',
+  representante: '',
+  engNome: '',
+  criadoEm: '',
+  atualizadoEm: '',
+  versao: '',
+  cor: '',
   versoes: [],
 })
 
@@ -86,7 +88,6 @@ function OrcamentoDetalhes() {
   const { id } = useParams()
   const [agendaContatoId, setAgendaContatoId] = useState(null)
   const navigate = useNavigate()
-  const location = useLocation()
   const [products, setProducts] = useState([])
   const [productsError, setProductsError] = useState('')
   const [productsLoading, setProductsLoading] = useState(false)
@@ -95,7 +96,7 @@ function OrcamentoDetalhes() {
   const [unitPrice, setUnitPrice] = useState('')
   const [items, setItems] = useState([])
   const [detailsError, setDetailsError] = useState('')
-  const [detailsLoading, setDetailsLoading] = useState(false)
+  const [detailsLoading, setDetailsLoading] = useState(true)
   const [brokenImages, setBrokenImages] = useState({})
   const [activeTab, setActiveTab] = useState('resumo')
   const [isAddEsquadriaModalOpen, setIsAddEsquadriaModalOpen] = useState(false)
@@ -190,16 +191,7 @@ function OrcamentoDetalhes() {
   const [alterarUsuarioSubmitting, setAlterarUsuarioSubmitting] = useState(false)
   const [alterarUsuarioError, setAlterarUsuarioError] = useState('')
 
-  const initialBudget = useMemo(() => {
-    const stateBudget = location.state?.budget
-    if (stateBudget) {
-      return {
-        ...fallbackBudget(stateBudget.id),
-        ...stateBudget,
-      }
-    }
-    return fallbackBudget(id || '—')
-  }, [id, location.state])
+  const initialBudget = useMemo(() => fallbackBudget(id), [id])
 
   const [budget, setBudget] = useState(initialBudget)
 
@@ -785,27 +777,9 @@ function OrcamentoDetalhes() {
   }, [initialBudget])
 
   useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        setProductsLoading(true)
-        const response = await apiFetch('/api/products')
-        if (!response.ok) {
-          throw new Error(`Falha ao buscar produtos (${response.status})`)
-        }
-        const data = await response.json()
-        const payload = Array.isArray(data) ? data : data?.content
-        setProducts(Array.isArray(payload) ? payload : [])
-        setProductsError('')
-      } catch (error) {
-        setProducts([])
-        setProductsError(error instanceof Error ? error.message : 'Erro ao buscar produtos')
-      } finally {
-        setProductsLoading(false)
-      }
-    }
-
+    setDetailsLoading(true)
+    setDetailsError('')
     loadBudgetDetails()
-    loadProducts()
   }, [loadBudgetDetails])
 
   const handleAddItem = () => {
@@ -1356,16 +1330,15 @@ function OrcamentoDetalhes() {
 
   const totalValue = items.reduce((sum, item) => sum + item.total, 0)
   const budgetProducts = Array.isArray(budget.produtos) ? budget.produtos : []
-  const budgetArea =
-    resolveBudgetNumber(budget, [
-      'area',
-      'Area',
-      'calculoArea',
-      'CalculoArea',
-      'areaM2',
-      'AreaM2',
-      'totalArea',
-    ]) ?? 48.49
+  const budgetArea = resolveBudgetNumber(budget, [
+    'area',
+    'Area',
+    'calculoArea',
+    'CalculoArea',
+    'areaM2',
+    'AreaM2',
+    'totalArea',
+  ])
   const freteObraNote = [
     resolveBudgetNumber(budget, ['distancia', 'Distancia']),
     resolveBudgetNumber(budget, ['fretes', 'Fretes']),
@@ -1619,7 +1592,7 @@ function OrcamentoDetalhes() {
       },
       {
         id: 'total-m2',
-        label: `Total/m² (${formatNumber(budgetArea)} m²)`,
+        label: `Total/m² (${budgetArea != null ? `${formatNumber(budgetArea)} m²` : '—'})`,
         value: resolveBudgetNumber(budget, ['totalM2', 'Totalm2', 'totalm2', 'totalPorMetro']),
         percent: null,
       },
@@ -1633,7 +1606,7 @@ function OrcamentoDetalhes() {
   }, [budget, budgetArea, freteObraNote])
 
   return (
-    <div className="app budget-detail-page">
+    <div className="app budget-detail-page notranslate" translate="no">
       <Header />
 
       <main className="budget-detail-container">
@@ -1653,31 +1626,39 @@ function OrcamentoDetalhes() {
           )}
         </header>
 
-        <section className="budget-detail-card">
-          {detailsLoading && <p>Carregando detalhes do orçamento...</p>}
-          {!detailsLoading && detailsError && <p>{detailsError}</p>}
+        <section className={`budget-detail-card${detailsLoading ? ' budget-detail-card--loading' : ''}`}>
+          {detailsLoading && (
+            <div className="budget-detail-loading" role="status" aria-live="polite">
+              <div className="budget-detail-loading-spinner" aria-hidden="true" />
+              <p>Carregando detalhes do orçamento...</p>
+            </div>
+          )}
+          {!detailsLoading && detailsError && (
+            <p className="budget-detail-error">{detailsError}</p>
+          )}
           <div className="budget-detail-info">
             <div className="budget-info-column">
               <p>
-                <strong>{budget.cliente}</strong>
+                <strong>{budget.cliente || '—'}</strong>
               </p>
-              <p>Eng.</p>
-              <p>Telefone: {budget.telefone}</p>
-              <p>Email: {budget.email}</p>
+              {budget.engNome ? <p>{budget.engNome}</p> : null}
+              <p>Telefone: {budget.telefone || '—'}</p>
+              <p>Email: {budget.email || '—'}</p>
               <p>
-                Obra: {budget.obra} {budget.local ? `- ${budget.local}` : ''}
+                Obra: {budget.obra || '—'}
+                {budget.local ? ` - ${budget.local}` : ''}
               </p>
-              <p>Status: {budget.status}</p>
+              <p>Status: {budget.status || '—'}</p>
             </div>
             <div className="budget-info-column">
               <p>
-                <strong>Orçamento: #{budget.id}</strong>
+                <strong>Orçamento: #{budget.id || '—'}</strong>
               </p>
-              <p>Representante: {budget.representante || budget.usuario}</p>
-              <p>Criado em: {budget.criadoEm}</p>
-              <p>Modificado em: {budget.atualizadoEm}</p>
+              <p>Representante: {budget.representante || budget.usuario || '—'}</p>
+              <p>Criado em: {budget.criadoEm || '—'}</p>
+              <p>Modificado em: {budget.atualizadoEm || '—'}</p>
               <p>
-                Versão: <strong>{budget.versao}</strong>
+                Versão: <strong>{budget.versao || '—'}</strong>
                 {Array.isArray(budget.versoes) && budget.versoes.length > 1 && (
                   <span className="budget-versoes-nav">
                     {' '}|{' '}Versões:{' '}
@@ -1747,8 +1728,11 @@ function OrcamentoDetalhes() {
               <>
                 <div className="budget-summary">
                   <p>
-                    Área: <strong>{formatNumber(budgetArea)} m²</strong> | Cor da obra:{' '}
-                    <strong>{budget?.cor || 'Branco'}</strong> |{' '}
+                    Área:{' '}
+                    <strong>
+                      {budgetArea != null ? `${formatNumber(budgetArea)} m²` : '—'}
+                    </strong>{' '}
+                    | Cor da obra: <strong>{budget?.cor || '—'}</strong> |{' '}
                     <button className="link-button" type="button" onClick={openAlterarLinhaModal}>
                       Alterar Linha
                     </button>

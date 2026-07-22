@@ -1232,6 +1232,49 @@
   gap: 20px;
 }
 
+.budget-detail-card--loading {
+  position: relative;
+  min-height: 180px;
+}
+
+.budget-detail-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border-radius: 8px;
+  background: #e8f3fa;
+  color: #0b5f8f;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.budget-detail-loading p {
+  margin: 0;
+}
+
+.budget-detail-loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #b7d7ea;
+  border-top-color: #0b5f8f;
+  border-radius: 50%;
+  animation: budget-detail-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes budget-detail-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.budget-detail-error {
+  color: #c81e1e;
+  margin: 0 0 8px;
+}
+
 .budget-detail-header {
   display: flex;
   flex-direction: column;
