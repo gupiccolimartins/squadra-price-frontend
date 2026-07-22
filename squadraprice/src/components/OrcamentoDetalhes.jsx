@@ -737,15 +737,17 @@ function OrcamentoDetalhes() {
     try {
       setCalculandoKm(true)
       const response = await apiFetch(
-        `/api/orcamentos/calcular-km?origem=Vinhedo - SP&destino=${encodeURIComponent(destino)}`
+        `/api/orcamentos/calcular-km?origem=${encodeURIComponent('Vinhedo - SP')}&destino=${encodeURIComponent(destino)}`
       )
       if (!response.ok) throw new Error('Erro ao calcular distância')
       const data = await response.json()
       if (data.distanciaKm != null) {
         setEditOrcamentoForm((prev) => ({ ...prev, distancia: String(data.distanciaKm) }))
+        setDistanciaEditavel(false)
       }
     } catch (error) {
       console.warn('calcularKm:', error instanceof Error ? error.message : error)
+      setDistanciaEditavel(true)
     } finally {
       setCalculandoKm(false)
     }

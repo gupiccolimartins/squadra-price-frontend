@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../App.css'
 import Header from './Header'
@@ -19,7 +19,7 @@ const initialFormData = {
   comissaoGerencial: '2.5',
   desconto: '5',
   rt: '0',
-  distancia: '100',
+  distancia: '',
   visitas: '1',
   fretes: '1',
   nota: '100',
@@ -67,6 +67,8 @@ function CriarOrcamento() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedbackMessage, setFeedbackMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [calculandoKm, setCalculandoKm] = useState(false)
+  const [distanciaEditavel, setDistanciaEditavel] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -141,6 +143,34 @@ function CriarOrcamento() {
     }
   }, [formData.ufId])
 
+  const handleCalcularKm = useCallback(async (overrideCidadeId, overrideUfId) => {
+    const targetCidadeId = overrideCidadeId ?? formData.cidadeId
+    const targetUfId = overrideUfId ?? formData.ufId
+    const cidadeObj = cidades.find((c) => String(c.id) === String(targetCidadeId))
+    const estadoObj = ufs.find((uf) => String(uf.id) === String(targetUfId))
+    const cidadeNome = cidadeObj?.cidade || ''
+    const ufSigla = estadoObj?.sigla || ''
+    const destino = cidadeNome ? (ufSigla ? `${cidadeNome} - ${ufSigla}` : cidadeNome) : ''
+    if (!destino) return
+    try {
+      setCalculandoKm(true)
+      const response = await apiFetch(
+        `/api/orcamentos/calcular-km?origem=${encodeURIComponent('Vinhedo - SP')}&destino=${encodeURIComponent(destino)}`
+      )
+      if (!response.ok) throw new Error('Erro ao calcular distância')
+      const data = await response.json()
+      if (data.distanciaKm != null) {
+        setFormData((prev) => ({ ...prev, distancia: String(data.distanciaKm) }))
+        setDistanciaEditavel(false)
+      }
+    } catch (error) {
+      console.warn('calcularKm:', error instanceof Error ? error.message : error)
+      setDistanciaEditavel(true)
+    } finally {
+      setCalculandoKm(false)
+    }
+  }, [formData.cidadeId, formData.ufId, cidades, ufs])
+
   const handleFieldChange = (event) => {
     const { name, value, type, checked } = event.target
     setFormData((previousData) => {
@@ -151,6 +181,7 @@ function CriarOrcamento() {
 
       if (name === 'ufId') {
         next.cidadeId = ''
+        next.distancia = ''
       }
 
       if (name === 'freteAutomatico' && checked) {
@@ -159,6 +190,15 @@ function CriarOrcamento() {
 
       return next
     })
+
+    if (name === 'ufId') {
+      setDistanciaEditavel(false)
+    }
+
+    if (name === 'cidadeId' && value) {
+      setDistanciaEditavel(false)
+      handleCalcularKm(value, formData.ufId)
+    }
   }
 
   const handleSubmit = async (event) => {
@@ -210,6 +250,7 @@ function CriarOrcamento() {
       setFeedbackMessage('Orcamento criado com sucesso.')
       setFormData(initialFormData)
       setCidades([])
+      setDistanciaEditavel(false)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Erro ao criar orçamento')
     } finally {
@@ -396,8 +437,31 @@ function CriarOrcamento() {
                   <label htmlFor="rt">RT (%)</label>
                 </div>
                 <div className="create-budget-field create-budget-metric-field">
-                  <input id="distancia" name="distancia" type="number" value={formData.distancia} onChange={handleFieldChange} />
-                  <label htmlFor="distancia">Distancia (Km)</label>
+                  <input
+                    id="distancia"
+                    name="distancia"
+                    type="number"
+                    step="0.01"
+                    value={formData.distancia}
+                    onChange={handleFieldChange}
+                    readOnly={!distanciaEditavel}
+                    style={!distanciaEditavel ? { background: '#f5f5f5', cursor: 'default' } : {}}
+                  />
+                  <label htmlFor="distancia" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    Distancia (Km)
+                    {calculandoKm && (
+                      <span style={{ fontSize: 11, color: '#888' }}>calculando...</span>
+                    )}
+                    {!calculandoKm && (
+                      <span
+                        title="Editar distância manualmente"
+                        style={{ cursor: 'pointer', fontSize: 13, color: '#555' }}
+                        onClick={() => setDistanciaEditavel(true)}
+                      >
+                        ✏️
+                      </span>
+                    )}
+                  </label>
                 </div>
               </div>
 
