@@ -88,6 +88,15 @@ function OrcamentoDetalhes() {
   const { id } = useParams()
   const [agendaContatoId, setAgendaContatoId] = useState(null)
   const navigate = useNavigate()
+
+  let user = {}
+  try {
+    user = JSON.parse(localStorage.getItem('squadra_user') || '{}')
+  } catch {
+    user = {}
+  }
+  const isAdmin = user.permissaoId === 1
+
   const [products, setProducts] = useState([])
   const [productsError, setProductsError] = useState('')
   const [productsLoading, setProductsLoading] = useState(false)
@@ -1059,6 +1068,19 @@ function OrcamentoDetalhes() {
         setEditOrcamentoSubmitting(true)
         setEditOrcamentoError('')
         const parseNum = (val) => (val !== '' && val != null ? Number(val) : null)
+        const notaValue = parseNum(editOrcamentoForm.nota)
+        const notaOriginal = budget.nota != null ? Number(budget.nota) : null
+        if (
+          !isAdmin &&
+          notaValue != null &&
+          notaOriginal != null &&
+          Number(notaValue) !== Number(notaOriginal) &&
+          !(notaValue > 50)
+        ) {
+          setEditOrcamentoError('Nota deve ser maior que 50%')
+          setEditOrcamentoSubmitting(false)
+          return
+        }
         const payload = {
           engNome: editOrcamentoForm.engNome,
           clienteNome: editOrcamentoForm.clienteNome,
@@ -1075,7 +1097,7 @@ function OrcamentoDetalhes() {
           distancia: parseNum(editOrcamentoForm.distancia),
           visitas: parseNum(editOrcamentoForm.visitas),
           fretes: parseNum(editOrcamentoForm.fretes),
-          nota: parseNum(editOrcamentoForm.nota),
+          nota: notaValue,
           margem: parseNum(editOrcamentoForm.margem),
           descontoAdicional: parseNum(editOrcamentoForm.descontoAdicional),
           custoExtra: parseNum(editOrcamentoForm.custoExtra),
@@ -1103,7 +1125,7 @@ function OrcamentoDetalhes() {
         setEditOrcamentoSubmitting(false)
       }
     },
-    [id, editOrcamentoForm, closeEditOrcamentoModal, loadBudgetDetails]
+    [id, editOrcamentoForm, closeEditOrcamentoModal, loadBudgetDetails, isAdmin, budget.nota]
   )
 
   const handleDuplicarEsquadria = useCallback(
@@ -2464,19 +2486,21 @@ function OrcamentoDetalhes() {
                   />
                 </label>
 
-                <label className="modal-form-group">
-                  Comissão Gerencial (%)
-                  <input
-                    className="modal-input"
-                    type="number"
-                    step="0.01"
-                    value={editOrcamentoForm.comissaoGerencial ?? ''}
-                    onChange={(e) =>
-                      setEditOrcamentoForm((prev) => ({ ...prev, comissaoGerencial: e.target.value }))
-                    }
-                    disabled={editOrcamentoSubmitting}
-                  />
-                </label>
+                {isAdmin && (
+                  <label className="modal-form-group">
+                    Comissão Gerencial (%)
+                    <input
+                      className="modal-input"
+                      type="number"
+                      step="0.01"
+                      value={editOrcamentoForm.comissaoGerencial ?? ''}
+                      onChange={(e) =>
+                        setEditOrcamentoForm((prev) => ({ ...prev, comissaoGerencial: e.target.value }))
+                      }
+                      disabled={editOrcamentoSubmitting}
+                    />
+                  </label>
+                )}
 
                 <label className="modal-form-group">
                   Desconto (%)
@@ -2512,7 +2536,7 @@ function OrcamentoDetalhes() {
                     {calculandoKm && (
                       <span style={{ fontSize: 11, color: '#888' }}>calculando...</span>
                     )}
-                    {!calculandoKm && (
+                    {isAdmin && !calculandoKm && (
                       <span
                         title="Editar distância manualmente"
                         style={{ cursor: 'pointer', fontSize: 13, color: '#555' }}
@@ -2530,9 +2554,9 @@ function OrcamentoDetalhes() {
                     onChange={(e) =>
                       setEditOrcamentoForm((prev) => ({ ...prev, distancia: e.target.value }))
                     }
-                    readOnly={!distanciaEditavel}
+                    readOnly={!isAdmin || !distanciaEditavel}
                     disabled={editOrcamentoSubmitting}
-                    style={!distanciaEditavel ? { background: '#f5f5f5', cursor: 'default' } : {}}
+                    style={!isAdmin || !distanciaEditavel ? { background: '#f5f5f5', cursor: 'default' } : {}}
                   />
                 </label>
 
@@ -2550,19 +2574,21 @@ function OrcamentoDetalhes() {
                   />
                 </label>
 
-                <label className="modal-form-group">
-                  Fretes
-                  <input
-                    className="modal-input"
-                    type="number"
-                    step="0.01"
-                    value={editOrcamentoForm.fretes ?? ''}
-                    onChange={(e) =>
-                      setEditOrcamentoForm((prev) => ({ ...prev, fretes: e.target.value }))
-                    }
-                    disabled={editOrcamentoSubmitting}
-                  />
-                </label>
+                {isAdmin && (
+                  <label className="modal-form-group">
+                    Fretes
+                    <input
+                      className="modal-input"
+                      type="number"
+                      step="0.01"
+                      value={editOrcamentoForm.fretes ?? ''}
+                      onChange={(e) =>
+                        setEditOrcamentoForm((prev) => ({ ...prev, fretes: e.target.value }))
+                      }
+                      disabled={editOrcamentoSubmitting}
+                    />
+                  </label>
+                )}
 
                 <label className="modal-form-group">
                   Nota (%)
@@ -2578,19 +2604,21 @@ function OrcamentoDetalhes() {
                   />
                 </label>
 
-                <label className="modal-form-group">
-                  Margem (%)
-                  <input
-                    className="modal-input"
-                    type="number"
-                    step="0.01"
-                    value={editOrcamentoForm.margem ?? ''}
-                    onChange={(e) =>
-                      setEditOrcamentoForm((prev) => ({ ...prev, margem: e.target.value }))
-                    }
-                    disabled={editOrcamentoSubmitting}
-                  />
-                </label>
+                {isAdmin && (
+                  <label className="modal-form-group">
+                    Margem (%)
+                    <input
+                      className="modal-input"
+                      type="number"
+                      step="0.01"
+                      value={editOrcamentoForm.margem ?? ''}
+                      onChange={(e) =>
+                        setEditOrcamentoForm((prev) => ({ ...prev, margem: e.target.value }))
+                      }
+                      disabled={editOrcamentoSubmitting}
+                    />
+                  </label>
+                )}
 
                 <label className="modal-form-group">
                   Desconto Adicional (R$)
@@ -2606,47 +2634,53 @@ function OrcamentoDetalhes() {
                   />
                 </label>
 
-                <label className="modal-form-group">
-                  Custo Extra Veka (%)
-                  <input
-                    className="modal-input"
-                    type="number"
-                    step="0.01"
-                    value={editOrcamentoForm.custoExtra ?? ''}
-                    onChange={(e) =>
-                      setEditOrcamentoForm((prev) => ({ ...prev, custoExtra: e.target.value }))
-                    }
-                    disabled={editOrcamentoSubmitting}
-                  />
-                </label>
+                {isAdmin && (
+                  <label className="modal-form-group">
+                    Custo Extra Veka (%)
+                    <input
+                      className="modal-input"
+                      type="number"
+                      step="0.01"
+                      value={editOrcamentoForm.custoExtra ?? ''}
+                      onChange={(e) =>
+                        setEditOrcamentoForm((prev) => ({ ...prev, custoExtra: e.target.value }))
+                      }
+                      disabled={editOrcamentoSubmitting}
+                    />
+                  </label>
+                )}
 
-                <label className="modal-form-group">
-                  Desconto Vidro (%)
-                  <input
-                    className="modal-input"
-                    type="number"
-                    step="0.01"
-                    value={editOrcamentoForm.descontoVidro ?? ''}
-                    onChange={(e) =>
-                      setEditOrcamentoForm((prev) => ({ ...prev, descontoVidro: e.target.value }))
-                    }
-                    disabled={editOrcamentoSubmitting}
-                  />
-                </label>
+                {isAdmin && (
+                  <label className="modal-form-group">
+                    Desconto Vidro (%)
+                    <input
+                      className="modal-input"
+                      type="number"
+                      step="0.01"
+                      value={editOrcamentoForm.descontoVidro ?? ''}
+                      onChange={(e) =>
+                        setEditOrcamentoForm((prev) => ({ ...prev, descontoVidro: e.target.value }))
+                      }
+                      disabled={editOrcamentoSubmitting}
+                    />
+                  </label>
+                )}
 
-                <label className="modal-form-group">
-                  Desconto Reforço (%)
-                  <input
-                    className="modal-input"
-                    type="number"
-                    step="0.01"
-                    value={editOrcamentoForm.descontoReforco ?? ''}
-                    onChange={(e) =>
-                      setEditOrcamentoForm((prev) => ({ ...prev, descontoReforco: e.target.value }))
-                    }
-                    disabled={editOrcamentoSubmitting}
-                  />
-                </label>
+                {isAdmin && (
+                  <label className="modal-form-group">
+                    Desconto Reforço (%)
+                    <input
+                      className="modal-input"
+                      type="number"
+                      step="0.01"
+                      value={editOrcamentoForm.descontoReforco ?? ''}
+                      onChange={(e) =>
+                        setEditOrcamentoForm((prev) => ({ ...prev, descontoReforco: e.target.value }))
+                      }
+                      disabled={editOrcamentoSubmitting}
+                    />
+                  </label>
+                )}
 
                 <div className="modal-form-group">
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -2662,19 +2696,21 @@ function OrcamentoDetalhes() {
                   </label>
                 </div>
 
-                <div className="modal-form-group">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={editOrcamentoForm.freteAutomatico ?? false}
-                      onChange={(e) =>
-                        setEditOrcamentoForm((prev) => ({ ...prev, freteAutomatico: e.target.checked }))
-                      }
-                      disabled={editOrcamentoSubmitting}
-                    />
-                    Frete Automático
-                  </label>
-                </div>
+                {isAdmin && (
+                  <div className="modal-form-group">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={editOrcamentoForm.freteAutomatico ?? false}
+                        onChange={(e) =>
+                          setEditOrcamentoForm((prev) => ({ ...prev, freteAutomatico: e.target.checked }))
+                        }
+                        disabled={editOrcamentoSubmitting}
+                      />
+                      Frete Automático
+                    </label>
+                  </div>
+                )}
 
                 <label className="modal-form-group modal-form-group-full">
                   Observações

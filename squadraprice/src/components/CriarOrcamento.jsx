@@ -70,6 +70,14 @@ function CriarOrcamento() {
   const [calculandoKm, setCalculandoKm] = useState(false)
   const [distanciaEditavel, setDistanciaEditavel] = useState(false)
 
+  let user = {}
+  try {
+    user = JSON.parse(localStorage.getItem('squadra_user') || '{}')
+  } catch {
+    user = {}
+  }
+  const isAdmin = user.permissaoId === 1
+
   useEffect(() => {
     let isMounted = true
 
@@ -205,6 +213,12 @@ function CriarOrcamento() {
     event.preventDefault()
     setFeedbackMessage('')
     setErrorMessage('')
+
+    const notaValue = Number.parseFloat(formData.nota)
+    if (!isAdmin && !(notaValue > 50)) {
+      setErrorMessage('Nota deve ser maior que 50%')
+      return
+    }
 
     const payload = {
       tipoResponsavel: formData.tipoResponsavel,
@@ -410,17 +424,19 @@ function CriarOrcamento() {
                   />
                   <label htmlFor="comissao">Comissao (%)</label>
                 </div>
-                <div className="create-budget-field create-budget-metric-field">
-                  <input
-                    id="comissaoGerencial"
-                    name="comissaoGerencial"
-                    type="number"
-                    step="0.1"
-                    value={formData.comissaoGerencial}
-                    onChange={handleFieldChange}
-                  />
-                  <label htmlFor="comissaoGerencial">Comissao Gerencial (%)</label>
-                </div>
+                {isAdmin && (
+                  <div className="create-budget-field create-budget-metric-field">
+                    <input
+                      id="comissaoGerencial"
+                      name="comissaoGerencial"
+                      type="number"
+                      step="0.1"
+                      value={formData.comissaoGerencial}
+                      onChange={handleFieldChange}
+                    />
+                    <label htmlFor="comissaoGerencial">Comissao Gerencial (%)</label>
+                  </div>
+                )}
                 <div className="create-budget-field create-budget-metric-field">
                   <input
                     id="desconto"
@@ -436,33 +452,35 @@ function CriarOrcamento() {
                   <input id="rt" name="rt" type="number" step="0.1" value={formData.rt} onChange={handleFieldChange} />
                   <label htmlFor="rt">RT (%)</label>
                 </div>
-                <div className="create-budget-field create-budget-metric-field">
-                  <input
-                    id="distancia"
-                    name="distancia"
-                    type="number"
-                    step="0.01"
-                    value={formData.distancia}
-                    onChange={handleFieldChange}
-                    readOnly={!distanciaEditavel}
-                    style={!distanciaEditavel ? { background: '#f5f5f5', cursor: 'default' } : {}}
-                  />
-                  <label htmlFor="distancia" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    Distancia (Km)
-                    {calculandoKm && (
-                      <span style={{ fontSize: 11, color: '#888' }}>calculando...</span>
-                    )}
-                    {!calculandoKm && (
-                      <span
-                        title="Editar distância manualmente"
-                        style={{ cursor: 'pointer', fontSize: 13, color: '#555' }}
-                        onClick={() => setDistanciaEditavel(true)}
-                      >
-                        ✏️
-                      </span>
-                    )}
-                  </label>
-                </div>
+                {isAdmin && (
+                  <div className="create-budget-field create-budget-metric-field">
+                    <input
+                      id="distancia"
+                      name="distancia"
+                      type="number"
+                      step="0.01"
+                      value={formData.distancia}
+                      onChange={handleFieldChange}
+                      readOnly={!distanciaEditavel}
+                      style={!distanciaEditavel ? { background: '#f5f5f5', cursor: 'default' } : {}}
+                    />
+                    <label htmlFor="distancia" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      Distancia (Km)
+                      {calculandoKm && (
+                        <span style={{ fontSize: 11, color: '#888' }}>calculando...</span>
+                      )}
+                      {!calculandoKm && (
+                        <span
+                          title="Editar distância manualmente"
+                          style={{ cursor: 'pointer', fontSize: 13, color: '#555' }}
+                          onClick={() => setDistanciaEditavel(true)}
+                        >
+                          ✏️
+                        </span>
+                      )}
+                    </label>
+                  </div>
+                )}
               </div>
 
               <div className="create-budget-grid create-budget-grid-5">
@@ -470,55 +488,63 @@ function CriarOrcamento() {
                   <input id="visitas" name="visitas" type="number" value={formData.visitas} onChange={handleFieldChange} />
                   <label htmlFor="visitas">Visitas</label>
                 </div>
-                <div className="create-budget-field create-budget-metric-field">
-                  <input
-                    id="fretes"
-                    name="fretes"
-                    type="number"
-                    value={formData.fretes}
-                    onChange={handleFieldChange}
-                    disabled={formData.freteAutomatico}
-                  />
-                  <label htmlFor="fretes">Fretes</label>
-                </div>
+                {isAdmin && (
+                  <div className="create-budget-field create-budget-metric-field">
+                    <input
+                      id="fretes"
+                      name="fretes"
+                      type="number"
+                      value={formData.fretes}
+                      onChange={handleFieldChange}
+                      disabled={formData.freteAutomatico}
+                    />
+                    <label htmlFor="fretes">Fretes</label>
+                  </div>
+                )}
                 <div className="create-budget-field create-budget-metric-field">
                   <input id="nota" name="nota" type="number" value={formData.nota} onChange={handleFieldChange} />
                   <label htmlFor="nota">Nota (%)</label>
                 </div>
-                <div className="create-budget-field create-budget-metric-field">
-                  <input id="margem" name="margem" type="number" value={formData.margem} onChange={handleFieldChange} />
-                  <label htmlFor="margem">Margem (%)</label>
-                </div>
-                <div className="create-budget-field create-budget-metric-field">
-                  <input id="custoExtra" name="custoExtra" type="number" value={formData.custoExtra} onChange={handleFieldChange} />
-                  <label htmlFor="custoExtra">Custo Extra (Veka) (%)</label>
-                </div>
+                {isAdmin && (
+                  <div className="create-budget-field create-budget-metric-field">
+                    <input id="margem" name="margem" type="number" value={formData.margem} onChange={handleFieldChange} />
+                    <label htmlFor="margem">Margem (%)</label>
+                  </div>
+                )}
+                {isAdmin && (
+                  <div className="create-budget-field create-budget-metric-field">
+                    <input id="custoExtra" name="custoExtra" type="number" value={formData.custoExtra} onChange={handleFieldChange} />
+                    <label htmlFor="custoExtra">Custo Extra (Veka) (%)</label>
+                  </div>
+                )}
               </div>
 
-              <div className="create-budget-grid create-budget-grid-2 create-budget-discount-grid">
-                <div className="create-budget-field create-budget-metric-field">
-                  <input
-                    id="descontoVidro"
-                    name="descontoVidro"
-                    type="number"
-                    step="0.1"
-                    value={formData.descontoVidro}
-                    onChange={handleFieldChange}
-                  />
-                  <label htmlFor="descontoVidro">Desconto Vidro (%)</label>
+              {isAdmin && (
+                <div className="create-budget-grid create-budget-grid-2 create-budget-discount-grid">
+                  <div className="create-budget-field create-budget-metric-field">
+                    <input
+                      id="descontoVidro"
+                      name="descontoVidro"
+                      type="number"
+                      step="0.1"
+                      value={formData.descontoVidro}
+                      onChange={handleFieldChange}
+                    />
+                    <label htmlFor="descontoVidro">Desconto Vidro (%)</label>
+                  </div>
+                  <div className="create-budget-field create-budget-metric-field">
+                    <input
+                      id="descontoReforco"
+                      name="descontoReforco"
+                      type="number"
+                      step="0.1"
+                      value={formData.descontoReforco}
+                      onChange={handleFieldChange}
+                    />
+                    <label htmlFor="descontoReforco">Desconto Reforco (%)</label>
+                  </div>
                 </div>
-                <div className="create-budget-field create-budget-metric-field">
-                  <input
-                    id="descontoReforco"
-                    name="descontoReforco"
-                    type="number"
-                    step="0.1"
-                    value={formData.descontoReforco}
-                    onChange={handleFieldChange}
-                  />
-                  <label htmlFor="descontoReforco">Desconto Reforco (%)</label>
-                </div>
-              </div>
+              )}
             </div>
 
             <div className="create-budget-checkboxes">
@@ -532,16 +558,18 @@ function CriarOrcamento() {
                 />
                 Sem Instalacao
               </label>
-              <label className="create-budget-checkbox" htmlFor="freteAutomatico">
-                <input
-                  id="freteAutomatico"
-                  name="freteAutomatico"
-                  type="checkbox"
-                  checked={formData.freteAutomatico}
-                  onChange={handleFieldChange}
-                />
-                Frete Automatico
-              </label>
+              {isAdmin && (
+                <label className="create-budget-checkbox" htmlFor="freteAutomatico">
+                  <input
+                    id="freteAutomatico"
+                    name="freteAutomatico"
+                    type="checkbox"
+                    checked={formData.freteAutomatico}
+                    onChange={handleFieldChange}
+                  />
+                  Frete Automatico
+                </label>
+              )}
             </div>
 
             <div className="create-budget-field">
