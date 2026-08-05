@@ -5,6 +5,13 @@ import Header from './Header'
 import { apiFetch } from '../utils/api'
 import { resolveProductImageSrc } from '../utils/productImage'
 
+const PRINT_COVERS = [
+  '/img/print1.jpg',
+  '/img/print2.jpg',
+  '/img/print3.jpg',
+  '/img/print5.jpg',
+]
+
 const formatMoney = (value) => {
   const parsed = Number.parseFloat(value)
   if (Number.isNaN(parsed)) return '—'
@@ -20,17 +27,17 @@ const formatNumber = (value, decimals = 2) => {
 function OrcamentoPrint() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [budget, setBudget] = useState(null)
+  const [printData, setPrintData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await apiFetch(`/api/orcamentos/${id}/detalhes`)
+      const res = await apiFetch(`/api/orcamentos/${id}/print`)
       if (!res.ok) throw new Error(`Falha ao buscar orçamento (${res.status})`)
       const data = await res.json()
-      setBudget(data)
+      setPrintData(data)
       setError('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar orçamento')
@@ -46,12 +53,14 @@ function OrcamentoPrint() {
   if (loading) return <div className="app"><Header /><main style={{ padding: '2rem' }}>Carregando...</main></div>
   if (error) return <div className="app"><Header /><main style={{ padding: '2rem' }}>{error}</main></div>
 
+  const budget = printData?.detalhes
+  const modeloHtml = printData?.modeloHtml
   const produtos = Array.isArray(budget?.produtos) ? budget.produtos : []
 
   return (
     <div className="app">
       <Header />
-      <main style={{ padding: '2rem', maxWidth: '960px', margin: '0 auto' }}>
+      <main className="orcamento-print-main" style={{ padding: '2rem', maxWidth: '960px', margin: '0 auto' }}>
 
         {/* Toolbar — hidden on print */}
         <div className="no-print" style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', alignItems: 'center' }}>
@@ -62,6 +71,24 @@ function OrcamentoPrint() {
             Imprimir
           </button>
         </div>
+
+        {/* Capas de apresentação (paridade com Print.cshtml legado) */}
+        {PRINT_COVERS.map((src) => (
+          <div key={src} className="print-cover-page">
+            <img src={src} alt="" className="print-cover-img" />
+          </div>
+        ))}
+
+        {/* Texto do modelo com placeholders preenchidos */}
+        {modeloHtml ? (
+          <div
+            className="print-modelo"
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo vem do banco interno do sistema
+            dangerouslySetInnerHTML={{ __html: modeloHtml }}
+          />
+        ) : null}
+
+        <div className="print-page-break" />
 
         {/* ── Header ── */}
         <table width="100%" cellSpacing="0" cellPadding="4" style={{ borderBottom: '3px solid #545454', marginBottom: '1rem', lineHeight: '1.5' }}>
@@ -189,11 +216,47 @@ function OrcamentoPrint() {
       </main>
 
       <style>{`
+        .print-cover-page {
+          page-break-after: always;
+          break-after: page;
+          margin: 0 0 1.5rem;
+          text-align: center;
+        }
+        .print-cover-img {
+          width: 780px;
+          max-width: 100%;
+          height: auto;
+          display: block;
+          margin: 0 auto;
+        }
+        .print-modelo {
+          margin-bottom: 1.5rem;
+        }
+        .print-page-break {
+          page-break-after: always;
+          break-after: page;
+          height: 0;
+        }
         @media print {
           .no-print { display: none !important; }
           header, nav { display: none !important; }
           body { background: white; }
-          main { padding: 0 !important; max-width: 100% !important; }
+          main.orcamento-print-main { padding: 0 !important; max-width: 100% !important; }
+          .print-cover-page {
+            margin: 0;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+          }
+          .print-cover-img {
+            width: 100%;
+            max-width: 100%;
+            max-height: 100vh;
+            object-fit: contain;
+          }
         }
       `}</style>
     </div>
