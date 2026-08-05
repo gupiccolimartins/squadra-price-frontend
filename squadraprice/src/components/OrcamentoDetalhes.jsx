@@ -103,7 +103,6 @@ function OrcamentoDetalhes() {
   const [selectedProductId, setSelectedProductId] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [unitPrice, setUnitPrice] = useState('')
-  const [items, setItems] = useState([])
   const [detailsError, setDetailsError] = useState('')
   const [detailsLoading, setDetailsLoading] = useState(true)
   const [brokenImages, setBrokenImages] = useState({})
@@ -238,20 +237,6 @@ function OrcamentoDetalhes() {
         ...fallbackBudget(id),
         ...data,
       })
-      const mappedItems = Array.isArray(data?.produtos)
-        ? data.produtos.map((produto, index) => {
-            const resolvedQuantity = Number.parseFloat(produto.quantidade) || 0
-            const resolvedUnitPrice = Number.parseFloat(produto.valorUnitario) || 0
-            return {
-              id: String(produto.id || `${produto.produtoId || 'item'}-${index}`),
-              name: produto.nome || produto.codigoPeca || 'Produto',
-              quantity: resolvedQuantity,
-              unitPrice: resolvedUnitPrice,
-              total: resolvedUnitPrice * resolvedQuantity,
-            }
-          })
-        : []
-      setItems(mappedItems)
       setDetailsError('')
     } catch (error) {
       setDetailsError(error instanceof Error ? error.message : 'Erro ao buscar detalhes do orçamento')
@@ -1352,8 +1337,8 @@ function OrcamentoDetalhes() {
     }
   }
 
-  const totalValue = items.reduce((sum, item) => sum + item.total, 0)
   const budgetProducts = Array.isArray(budget.produtos) ? budget.produtos : []
+  const totalValue = resolveBudgetNumber(budget, ['total', 'Total'])
   const budgetArea = resolveBudgetNumber(budget, [
     'area',
     'Area',
@@ -2236,6 +2221,12 @@ function OrcamentoDetalhes() {
                       )
                     })}
                   </div>
+
+                  {budgetProducts.length > 0 && (
+                    <div className="budget-products-total">
+                      TOTAL: {formatMoney(totalValue)}
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
