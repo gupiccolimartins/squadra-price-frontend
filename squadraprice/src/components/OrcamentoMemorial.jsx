@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import '../App.css'
 import Header from './Header'
@@ -14,10 +14,12 @@ const formatArea = (value) => {
 function OrcamentoMemorial() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const containerRef = useRef(null)
   const [memorial, setMemorial] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [brokenImages, setBrokenImages] = useState({})
+  const [preparingPrint, setPreparingPrint] = useState(false)
 
   const loadData = useCallback(async () => {
     try {
@@ -42,6 +44,22 @@ function OrcamentoMemorial() {
     setBrokenImages((prev) => ({ ...prev, [key]: true }))
   }
 
+  // Fotos remotas (pré-assinada S3): esperar decode antes do print evita PDF em branco.
+  const handlePrint = async () => {
+    setPreparingPrint(true)
+    try {
+      const images = Array.from(containerRef.current?.querySelectorAll('img') ?? [])
+      await Promise.all(images.map((img) => (
+        img.complete && img.naturalWidth > 0
+          ? Promise.resolve()
+          : img.decode().catch(() => undefined)
+      )))
+    } finally {
+      setPreparingPrint(false)
+      window.print()
+    }
+  }
+
   if (loading) return <div className="app"><Header /><main style={{ padding: '2rem' }}>Carregando...</main></div>
   if (error) return <div className="app"><Header /><main style={{ padding: '2rem' }}>{error}</main></div>
 
@@ -51,15 +69,15 @@ function OrcamentoMemorial() {
   return (
     <div className="app">
       <Header />
-      <main className="memorial-main" style={{ padding: '2rem', maxWidth: '960px', margin: '0 auto' }}>
+      <main ref={containerRef} className="memorial-main" style={{ padding: '2rem', maxWidth: '960px', margin: '0 auto' }}>
 
         {/* Toolbar */}
         <div className="memorial-no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <button className="link-button" type="button" onClick={() => navigate(`/Orcamentos/${id}`)}>
             Voltar
           </button>
-          <button className="chip-button" type="button" onClick={() => window.print()}>
-            Imprimir
+          <button className="chip-button" type="button" onClick={handlePrint} disabled={preparingPrint}>
+            {preparingPrint ? 'Preparando...' : 'Imprimir'}
           </button>
         </div>
 

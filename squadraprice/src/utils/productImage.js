@@ -1,8 +1,11 @@
 import { API_BASE_URL } from './api'
 
 /**
- * Builds the public URL for a product photo filename stored in DB (`produto.Foto`).
- * Absolute http(s)/data URLs are returned as-is.
+ * URL para exibir a foto do produto a partir do campo `foto` da API.
+ *
+ * Em S3 a API já devolve URL HTTPS pré-assinada — usamos como está.
+ * Em storage local a API devolve a key (`products/…` ou nome legado); aí montamos
+ * `${API}/content/img/{key}` (ou CDN se `VITE_IMG_BASE_URL` estiver definida).
  */
 export function resolveProductImageSrc(foto) {
   if (!foto || !String(foto).trim()) {
@@ -12,6 +15,14 @@ export function resolveProductImageSrc(foto) {
   if (/^(https?:|data:)/i.test(value)) {
     return value
   }
-  const base = (import.meta.env.VITE_IMG_BASE_URL ?? API_BASE_URL).replace(/\/$/, '')
-  return `${base}/content/img/${value.replace(/^\/+/, '')}`
+
+  const path = value.replace(/^\/+/, '')
+  // Nome solto do legado → mesma normalização do backend (StorageKeys.normalizeProductKey).
+  const key = path.includes('/') ? path : `products/legacy/${path}`
+
+  const cdnBase = import.meta.env.VITE_IMG_BASE_URL
+  if (cdnBase) {
+    return `${cdnBase.replace(/\/$/, '')}/${key}`
+  }
+  return `${API_BASE_URL.replace(/\/$/, '')}/content/img/${key}`
 }

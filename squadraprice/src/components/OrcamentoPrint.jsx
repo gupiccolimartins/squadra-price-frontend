@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import '../App.css'
 import Header from './Header'
@@ -27,9 +27,33 @@ const formatNumber = (value, decimals = 2) => {
 function OrcamentoPrint() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const containerRef = useRef(null)
   const [printData, setPrintData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [brokenImages, setBrokenImages] = useState({})
+  const [preparingPrint, setPreparingPrint] = useState(false)
+
+  const handleImageError = (key) => {
+    setBrokenImages((prev) => ({ ...prev, [key]: true }))
+  }
+
+  // Fotos vêm de URL remota (pré-assinada S3 / /content/img): sem esperar o decode,
+  // window.print() dispara com imagens ainda em voo e elas saem em branco no PDF.
+  const handlePrint = async () => {
+    setPreparingPrint(true)
+    try {
+      const images = Array.from(containerRef.current?.querySelectorAll('img') ?? [])
+      await Promise.all(images.map((img) => (
+        img.complete && img.naturalWidth > 0
+          ? Promise.resolve()
+          : img.decode().catch(() => undefined)
+      )))
+    } finally {
+      setPreparingPrint(false)
+      window.print()
+    }
+  }
 
   const loadData = useCallback(async () => {
     try {
@@ -60,15 +84,15 @@ function OrcamentoPrint() {
   return (
     <div className="app">
       <Header />
-      <main className="orcamento-print-main" style={{ padding: '2rem', maxWidth: '960px', margin: '0 auto' }}>
+      <main ref={containerRef} className="orcamento-print-main" style={{ padding: '2rem', maxWidth: '960px', margin: '0 auto' }}>
 
         {/* Toolbar — hidden on print */}
         <div className="no-print" style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', alignItems: 'center' }}>
           <button className="link-button" type="button" onClick={() => navigate(`/Orcamentos/${id}`)}>
             ← Voltar
           </button>
-          <button className="chip-button" type="button" onClick={() => window.print()}>
-            Imprimir
+          <button className="chip-button" type="button" onClick={handlePrint} disabled={preparingPrint}>
+            {preparingPrint ? 'Preparando...' : 'Imprimir'}
           </button>
         </div>
 
@@ -122,7 +146,8 @@ function OrcamentoPrint() {
 
         {/* ── Produtos ── */}
         {produtos.map((p) => {
-          const productImg = resolveProductImageSrc(p.foto)
+          const productImgSrc = resolveProductImageSrc(p.foto)
+          const productImg = productImgSrc && !brokenImages[`prod-${p.id}`] ? productImgSrc : null
           return (
           <div key={p.id} style={{ marginBottom: '1rem', border: '1px solid #aaa' }}>
             {/* Cabeçalho do produto */}
@@ -136,7 +161,7 @@ function OrcamentoPrint() {
                 <tr>
                   <td style={{ width: '120px', verticalAlign: 'top', padding: '8px' }}>
                     {productImg
-                      ? <img src={productImg} width="110" height="110" alt={p.nome} style={{ objectFit: 'contain' }} />
+                      ? <img src={productImg} width="110" height="110" alt={p.nome} style={{ objectFit: 'contain' }} onError={() => handleImageError(`prod-${p.id}`)} />
                       : <div style={{ width: 110, height: 110, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', color: '#999' }}>Sem foto</div>
                     }
                   </td>
@@ -161,7 +186,8 @@ function OrcamentoPrint() {
 
                 {/* Acessórios do produto */}
                 {Array.isArray(p.acessorios) && p.acessorios.map((a) => {
-                  const accessoryImg = resolveProductImageSrc(a.foto)
+                  const accessoryImgSrc = resolveProductImageSrc(a.foto)
+                  const accessoryImg = accessoryImgSrc && !brokenImages[`ac-${a.id}`] ? accessoryImgSrc : null
                   return (
                   <>
                     <tr key={`sep-${a.id}`}>
@@ -170,7 +196,7 @@ function OrcamentoPrint() {
                     <tr key={a.id}>
                       <td style={{ padding: '8px', verticalAlign: 'top' }}>
                         {accessoryImg
-                          ? <img src={accessoryImg} width="110" height="110" alt={a.nome} style={{ objectFit: 'contain' }} />
+                          ? <img src={accessoryImg} width="110" height="110" alt={a.nome} style={{ objectFit: 'contain' }} onError={() => handleImageError(`ac-${a.id}`)} />
                           : <div style={{ width: 110, height: 110, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', color: '#999' }}>Sem foto</div>
                         }
                       </td>

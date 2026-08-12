@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { apiFetch } from '../utils/api'
 
+const MAX_ARQUIVO_BYTES = 10_000_000
+
 function PedidoOrcamento() {
   const [form, setForm] = useState({ nome: '', telefone: '', email: '', cidade: '', observacoes: '' })
   const [arquivo, setArquivo] = useState(null)
@@ -11,6 +13,7 @@ function PedidoOrcamento() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.nome.trim()) { setError('Informe seu nome'); return }
+    if (arquivo && arquivo.size > MAX_ARQUIVO_BYTES) { setError('O arquivo anexado deve ter no máximo 10 MB.'); return }
     try {
       setSubmitting(true)
       setError('')
@@ -73,7 +76,7 @@ function PedidoOrcamento() {
             <textarea style={{ ...fieldStyle, resize: 'vertical', minHeight: 90 }} rows={4} value={form.observacoes} onChange={(e) => setForm((p) => ({ ...p, observacoes: e.target.value }))} disabled={submitting} placeholder="Detalhe o que voce precisa..." />
           </label>
           <label style={inputStyle}>
-            Anexar arquivo (planta, fotos, etc.)
+            Anexar arquivo (planta, fotos, etc.) — até 10 MB
             <input type="file" accept=".pdf,.jpg,.jpeg,.png,.dwg" onChange={(e) => setArquivo(e.target.files?.[0] || null)} disabled={submitting} />
           </label>
           {error && <div style={{ color: '#dc2626', fontSize: 13, padding: '8px 12px', background: '#fef2f2', borderRadius: 4 }}>{error}</div>}
